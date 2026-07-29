@@ -427,7 +427,7 @@ defmodule WandererAppWeb.MapRoutesEventHandler do
          "avoid_triglavian" => avoid_triglavian,
          "include_thera" => include_thera,
          "avoid" => avoid
-       }),
+       } = settings),
        do: %{
          path_type: path_type,
          include_mass_crit: include_mass_crit,
@@ -439,6 +439,7 @@ defmodule WandererAppWeb.MapRoutesEventHandler do
          avoid_edencom: avoid_edencom,
          avoid_triglavian: avoid_triglavian,
          include_thera: include_thera,
+         avoid_dangerous_bridges: Map.get(settings, "avoid_dangerous_bridges", false),
          avoid: avoid
        }
 
