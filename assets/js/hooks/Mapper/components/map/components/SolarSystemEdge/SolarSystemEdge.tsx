@@ -8,7 +8,11 @@ import { ConnectionType, MassState, ShipSizeStatus, SolarSystemConnection, TimeS
 import { PrimeIcons } from 'primereact/api';
 import { WdTooltipWrapper } from '@/hooks/Mapper/components/ui-kit/WdTooltipWrapper';
 import { useMapState } from '@/hooks/Mapper/components/map/MapProvider.tsx';
-import { SHIP_SIZES_DESCRIPTION, SHIP_SIZES_NAMES_SHORT } from '@/hooks/Mapper/components/map/constants.ts';
+import {
+  SHIP_SIZES_DESCRIPTION,
+  SHIP_SIZES_NAMES_SHORT,
+  STATUSES,
+} from '@/hooks/Mapper/components/map/constants.ts';
 import { TooltipPosition } from '@/hooks/Mapper/components/ui-kit';
 
 const MAP_TRANSLATES: Record<string, string> = {
@@ -46,6 +50,12 @@ export const SolarSystemEdge = ({ id, source, target, markerEnd, style, data }: 
   const isWormhole = data?.type === ConnectionType.wormhole;
   const isGate = data?.type === ConnectionType.gate;
   const isBridge = data?.type === ConnectionType.bridge;
+
+  // a jumpgate is only as safe as the systems it links - both ends dangerous means the gate is too
+  const isDangerousBridge =
+    isBridge &&
+    sourceNode?.data?.status === STATUSES.dangerous &&
+    targetNode?.data?.status === STATUSES.dangerous;
 
   const {
     data: { isThickConnections },
@@ -85,6 +95,7 @@ export const SolarSystemEdge = ({ id, source, target, markerEnd, style, data }: 
           [classes.Hovered]: hovered,
           [classes.Gate]: isGate,
           [classes.Bridge]: isBridge,
+          [classes.DangerousBridge]: isDangerousBridge,
         })}
         d={path}
         markerEnd={markerEnd}

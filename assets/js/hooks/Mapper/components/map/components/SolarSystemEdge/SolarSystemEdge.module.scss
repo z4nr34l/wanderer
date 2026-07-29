@@ -68,6 +68,10 @@
     stroke-dasharray: var(--rf-edge-bridge-dasharray, 10 5);
     stroke-linecap: var(--rf-edge-bridge-linecap, round);
   }
+
+  &.DangerousBridge {
+    stroke: var(--rf-edge-bridge-dangerous, var(--eve-solar-system-status-color-dangerous, #af0000));
+  }
 }
 
 .EdgePathFront {

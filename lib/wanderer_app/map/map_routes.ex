@@ -15,6 +15,7 @@ defmodule WandererApp.Map.Routes do
     avoid_pochven: false,
     avoid_edencom: false,
     avoid_triglavian: false,
+    avoid_dangerous_bridges: false,
     include_thera: true,
     avoid: []
   }
@@ -35,6 +36,10 @@ defmodule WandererApp.Map.Routes do
     :include_eol,
     :include_frig
   ]
+
+  # a jumpgate between two systems marked dangerous is treated as unusable when routing
+  @bridge_connection_type 2
+  @dangerous_system_status 6
 
   @zarzakh_system 30_100_000
   @default_avoid_systems [@zarzakh_system]
@@ -114,6 +119,7 @@ defmodule WandererApp.Map.Routes do
               }
             end)
             |> Enum.uniq()
+            |> reject_dangerous_bridges(map_id, routes_settings)
 
           {:ok, thera_chains} =
             case routes_settings.include_thera do
@@ -279,6 +285,44 @@ defmodule WandererApp.Map.Routes do
       @logger.error("Failed to save error params: #{inspect(e)}")
       "error_saving_params"
   end
+
+  defp reject_dangerous_bridges(chains, _map_id, %{avoid_dangerous_bridges: false}), do: chains
+
+  defp reject_dangerous_bridges(chains, map_id, _routes_settings) do
+    pairs = dangerous_bridge_pairs(map_id)
+
+    if MapSet.size(pairs) == 0 do
+      chains
+    else
+      chains
+      |> Enum.reject(fn %{first: first, second: second} ->
+        MapSet.member?(pairs, pair_key(first, second))
+      end)
+    end
+  end
+
+  @doc false
+  def dangerous_bridge_pairs(map_id) do
+    with {:ok, systems} <- WandererApp.MapSystemRepo.get_visible_by_map(map_id),
+         {:ok, connections} <- WandererApp.MapConnectionRepo.get_by_map(map_id) do
+      dangerous =
+        systems
+        |> Enum.filter(&(&1.status == @dangerous_system_status))
+        |> MapSet.new(& &1.solar_system_id)
+
+      connections
+      |> Enum.filter(fn connection ->
+        connection.type == @bridge_connection_type and
+          MapSet.member?(dangerous, connection.solar_system_source) and
+          MapSet.member?(dangerous, connection.solar_system_target)
+      end)
+      |> MapSet.new(&pair_key(&1.solar_system_source, &1.solar_system_target))
+    else
+      _ -> MapSet.new()
+    end
+  end
+
+  defp pair_key(first, second), do: {min(first, second), max(first, second)}
 
   defp remove_intersection(pairs_arr) do
     tuples = pairs_arr |> Enum.map(fn x -> {x.first, x.second} end)
