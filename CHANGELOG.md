@@ -2,6 +2,23 @@
 
 <!-- changelog -->
 
+## [v1.102.0](https://github.com/wanderer-industries/wanderer/compare/v1.101.7...v1.102.0) (2026-07-30)
+
+
+
+
+### Features:
+
+* map: flag jumpgates between dangerous systems
+
+* map: export and import map contents
+
+* map: make system labels configurable per user
+
+### Bug Fixes:
+
+* map: let the labels settings list scroll
+
 ## [v1.101.7](https://github.com/wanderer-industries/wanderer/compare/v1.101.6...v1.101.7) (2026-07-17)
 
 
