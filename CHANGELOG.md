@@ -2,6 +2,15 @@
 
 <!-- changelog -->
 
+## [v1.102.1](https://github.com/wanderer-industries/wanderer/compare/v1.102.0...v1.102.1) (2026-07-30)
+
+
+
+
+### Bug Fixes:
+
+* map: keep system attributes when pasting into another map
+
 ## [v1.102.0](https://github.com/wanderer-industries/wanderer/compare/v1.101.7...v1.102.0) (2026-07-30)
 
 
