@@ -1,0 +1,97 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    # every day at 05:17 UTC
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+    inputs:
+      upstream_branch:
+        description: 'Upstream branch to sync from'
+        required: false
+        default: 'main'
+
+env:
+  UPSTREAM_REPO: https://github.com/wanderer-industries/wanderer.git
+  UPSTREAM_BRANCH: ${{ inputs.upstream_branch || 'main' }}
+  SYNC_BRANCH: sync/upstream
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Open sync PR when upstream moved
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔗 Fetch upstream
+        run: |
+          git remote add upstream "$UPSTREAM_REPO"
+          git fetch upstream "$UPSTREAM_BRANCH"
+
+      - name: 🔍 Check for new upstream commits
+        id: check
+        run: |
+          behind=$(git rev-list --count "HEAD..upstream/$UPSTREAM_BRANCH")
+          echo "behind=$behind" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Upstream sync"
+            echo ""
+            echo "\`$UPSTREAM_BRANCH\` is **$behind** commits ahead of this fork."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$behind" != "0" ]; then
+            {
+              echo ""
+              git log --oneline --no-merges "HEAD..upstream/$UPSTREAM_BRANCH" | head -50
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: 🌱 Update sync branch
+        if: steps.check.outputs.behind != '0'
+        run: |
+          git push --force origin "refs/remotes/upstream/$UPSTREAM_BRANCH:refs/heads/$SYNC_BRANCH"
+
+      - name: 🔀 Open or refresh pull request
+        if: steps.check.outputs.behind != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          state=$(gh pr view "$SYNC_BRANCH" --json state --jq .state 2>/dev/null || true)
+
+          if [ "$state" = "OPEN" ]; then
+            echo "PR for $SYNC_BRANCH is already open - force push above refreshed it."
+            exit 0
+          fi
+
+          commits=$(git log --oneline --no-merges "HEAD..upstream/$UPSTREAM_BRANCH" | head -50)
+
+          gh pr create \
+            --base "$BASE_BRANCH" \
+            --head "$SYNC_BRANCH" \
+            --title "Sync upstream $UPSTREAM_BRANCH ($(date -u +%Y-%m-%d))" \
+            --body "$(printf '%s\n' \
+              "Upstream \`wanderer-industries/wanderer@$UPSTREAM_BRANCH\` has ${{ steps.check.outputs.behind }} commits that are not in this fork." \
+              "" \
+              "Merging keeps our own commits - the branch points at upstream, so any conflicts with local changes show up here and can be resolved before merging." \
+              "" \
+              "<details><summary>New upstream commits</summary>" \
+              "" \
+              '```' \
+              "$commits" \
+              '```' \
+              "" \
+              "</details>")"
