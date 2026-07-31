@@ -166,12 +166,12 @@
   font-size: var(--rf-edge-label-icon-font-size, 8px);
 }
 
-// a bubble sits on the end of the connection it covers
+// a bubble is drawn around the end of the connection it covers, in the edge layer so the system
+// card sits on top of it
 .Bubble {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 2px dashed var(--rf-edge-bubble, #ffa200);
-  background-color: transparent;
-  box-sizing: border-box;
+  fill: rgba(255, 176, 58, 0.18);
+  stroke: var(--rf-edge-bubble, #ffb03a);
+  stroke-width: 2px;
+  stroke-dasharray: 6 4;
+  pointer-events: none;
 }
