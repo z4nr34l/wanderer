@@ -2,6 +2,19 @@
 
 <!-- changelog -->
 
+## [v1.104.0](https://github.com/wanderer-industries/wanderer/compare/v1.103.0...v1.104.0) (2026-07-31)
+
+
+
+
+### Features:
+
+* map: mark a signature as bubbled
+
+### Bug Fixes:
+
+* map: route the new connection events and show the flags on the edge
+
 ## [v1.103.0](https://github.com/wanderer-industries/wanderer/compare/v1.102.1...v1.103.0) (2026-07-31)
 
 
