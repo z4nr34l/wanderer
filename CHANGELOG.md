@@ -2,6 +2,15 @@
 
 <!-- changelog -->
 
+## [v1.105.0](https://github.com/wanderer-industries/wanderer/compare/v1.104.0...v1.105.0) (2026-07-31)
+
+
+
+
+### Features:
+
+* map: show on the system card that a signature inside is bubbled
+
 ## [v1.104.0](https://github.com/wanderer-industries/wanderer/compare/v1.103.0...v1.104.0) (2026-07-31)
 
 
