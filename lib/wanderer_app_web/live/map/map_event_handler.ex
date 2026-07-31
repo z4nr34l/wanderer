@@ -343,7 +343,7 @@ defmodule WandererAppWeb.MapEventHandler do
           type: type,
           ship_size_type: ship_size_type,
           locked: locked
-        } = _connection
+        } = connection
       ),
       do: %{
         id: "#{solar_system_source}_#{solar_system_target}",
@@ -352,6 +352,8 @@ defmodule WandererAppWeb.MapEventHandler do
         type: type,
         ship_size_type: ship_size_type,
         locked: locked,
+        dangerous: Map.get(connection, :dangerous, false),
+        bubbled: Map.get(connection, :bubbled, 0),
         source: "#{solar_system_source}",
         target: "#{solar_system_target}"
       }
