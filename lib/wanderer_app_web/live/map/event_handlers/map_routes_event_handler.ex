@@ -440,6 +440,8 @@ defmodule WandererAppWeb.MapRoutesEventHandler do
          avoid_triglavian: avoid_triglavian,
          include_thera: include_thera,
          avoid_dangerous_bridges: Map.get(settings, "avoid_dangerous_bridges", false),
+         avoid_bubbled_connections:
+           Map.get(settings, "avoid_bubbled_connections", false),
          avoid: avoid
        }
 

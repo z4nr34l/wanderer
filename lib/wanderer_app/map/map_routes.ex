@@ -16,6 +16,7 @@ defmodule WandererApp.Map.Routes do
     avoid_edencom: false,
     avoid_triglavian: false,
     avoid_dangerous_bridges: false,
+    avoid_bubbled_connections: false,
     include_thera: true,
     avoid: []
   }
@@ -37,9 +38,9 @@ defmodule WandererApp.Map.Routes do
     :include_frig
   ]
 
-  # a jumpgate between two systems marked dangerous is treated as unusable when routing
+  # bridges marked dangerous by hand, and connections with a bubble on either end, can be left
+  # out of route calculation
   @bridge_connection_type 2
-  @dangerous_system_status 6
 
   @zarzakh_system 30_100_000
   @default_avoid_systems [@zarzakh_system]
@@ -119,7 +120,7 @@ defmodule WandererApp.Map.Routes do
               }
             end)
             |> Enum.uniq()
-            |> reject_dangerous_bridges(map_id, routes_settings)
+            |> reject_avoided_connections(map_id, routes_settings)
 
           {:ok, thera_chains} =
             case routes_settings.include_thera do
@@ -286,14 +287,15 @@ defmodule WandererApp.Map.Routes do
       "error_saving_params"
   end
 
-  defp reject_dangerous_bridges(chains, _map_id, %{avoid_dangerous_bridges: false}), do: chains
+  defp reject_avoided_connections(chains, map_id, routes_settings) do
+    avoid_dangerous = Map.get(routes_settings, :avoid_dangerous_bridges, false)
+    avoid_bubbled = Map.get(routes_settings, :avoid_bubbled_connections, false)
 
-  defp reject_dangerous_bridges(chains, map_id, _routes_settings) do
-    pairs = dangerous_bridge_pairs(map_id)
-
-    if MapSet.size(pairs) == 0 do
+    if not avoid_dangerous and not avoid_bubbled do
       chains
     else
+      pairs = avoided_pairs(map_id, avoid_dangerous, avoid_bubbled)
+
       chains
       |> Enum.reject(fn %{first: first, second: second} ->
         MapSet.member?(pairs, pair_key(first, second))
@@ -302,24 +304,26 @@ defmodule WandererApp.Map.Routes do
   end
 
   @doc false
-  def dangerous_bridge_pairs(map_id) do
-    with {:ok, systems} <- WandererApp.MapSystemRepo.get_visible_by_map(map_id),
-         {:ok, connections} <- WandererApp.MapConnectionRepo.get_by_map(map_id) do
-      dangerous =
-        systems
-        |> Enum.filter(&(&1.status == @dangerous_system_status))
-        |> MapSet.new(& &1.solar_system_id)
+  def avoided_pairs(map_id, avoid_dangerous, avoid_bubbled) do
+    case WandererApp.MapConnectionRepo.get_by_map(map_id) do
+      {:ok, connections} ->
+        connections
+        |> Enum.filter(&avoided_connection?(&1, avoid_dangerous, avoid_bubbled))
+        |> MapSet.new(&pair_key(&1.solar_system_source, &1.solar_system_target))
 
-      connections
-      |> Enum.filter(fn connection ->
-        connection.type == @bridge_connection_type and
-          MapSet.member?(dangerous, connection.solar_system_source) and
-          MapSet.member?(dangerous, connection.solar_system_target)
-      end)
-      |> MapSet.new(&pair_key(&1.solar_system_source, &1.solar_system_target))
-    else
-      _ -> MapSet.new()
+      _ ->
+        MapSet.new()
     end
+  end
+
+  defp avoided_connection?(connection, avoid_dangerous, avoid_bubbled) do
+    dangerous_bridge? =
+      avoid_dangerous and connection.dangerous and
+        connection.type == @bridge_connection_type
+
+    bubbled? = avoid_bubbled and (connection.bubbled || 0) > 0
+
+    dangerous_bridge? or bubbled?
   end
 
   defp pair_key(first, second), do: {min(first, second), max(first, second)}

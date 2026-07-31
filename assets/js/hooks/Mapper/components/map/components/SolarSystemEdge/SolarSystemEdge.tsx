@@ -4,15 +4,18 @@ import classes from './SolarSystemEdge.module.scss';
 import { EdgeLabelRenderer, EdgeProps, getBezierPath, Position, useStore } from 'reactflow';
 import { getEdgeParams } from '@/hooks/Mapper/components/map/utils.ts';
 import clsx from 'clsx';
-import { ConnectionType, MassState, ShipSizeStatus, SolarSystemConnection, TimeStatus } from '@/hooks/Mapper/types';
+import {
+  BubbleState,
+  ConnectionType,
+  MassState,
+  ShipSizeStatus,
+  SolarSystemConnection,
+  TimeStatus,
+} from '@/hooks/Mapper/types';
 import { PrimeIcons } from 'primereact/api';
 import { WdTooltipWrapper } from '@/hooks/Mapper/components/ui-kit/WdTooltipWrapper';
 import { useMapState } from '@/hooks/Mapper/components/map/MapProvider.tsx';
-import {
-  SHIP_SIZES_DESCRIPTION,
-  SHIP_SIZES_NAMES_SHORT,
-  STATUSES,
-} from '@/hooks/Mapper/components/map/constants.ts';
+import { SHIP_SIZES_DESCRIPTION, SHIP_SIZES_NAMES_SHORT } from '@/hooks/Mapper/components/map/constants.ts';
 import { TooltipPosition } from '@/hooks/Mapper/components/ui-kit';
 
 const MAP_TRANSLATES: Record<string, string> = {
@@ -51,11 +54,11 @@ export const SolarSystemEdge = ({ id, source, target, markerEnd, style, data }: 
   const isGate = data?.type === ConnectionType.gate;
   const isBridge = data?.type === ConnectionType.bridge;
 
-  // a jumpgate is only as safe as the systems it links - both ends dangerous means the gate is too
-  const isDangerousBridge =
-    isBridge &&
-    sourceNode?.data?.status === STATUSES.dangerous &&
-    targetNode?.data?.status === STATUSES.dangerous;
+  // set by hand on the connection itself, not inherited from the systems it links
+  const isDangerous = data?.dangerous === true;
+  const bubbled = data?.bubbled ?? BubbleState.none;
+  const isSourceBubbled = bubbled === BubbleState.source || bubbled === BubbleState.both;
+  const isTargetBubbled = bubbled === BubbleState.target || bubbled === BubbleState.both;
 
   const {
     data: { isThickConnections },
@@ -95,7 +98,7 @@ export const SolarSystemEdge = ({ id, source, target, markerEnd, style, data }: 
           [classes.Hovered]: hovered,
           [classes.Gate]: isGate,
           [classes.Bridge]: isBridge,
-          [classes.DangerousBridge]: isDangerousBridge,
+          [classes.Dangerous]: isDangerous,
         })}
         d={path}
         markerEnd={markerEnd}
@@ -143,6 +146,21 @@ export const SolarSystemEdge = ({ id, source, target, markerEnd, style, data }: 
           )}
           style={{ transform: `${MAP_TRANSLATES[targetPos]} translate(${tx}px,${ty}px)` }}
         />
+
+        {isSourceBubbled && (
+          <div
+            className={clsx(classes.Bubble, 'absolute nodrag pointer-events-none')}
+            style={{ transform: `translate(-50%, -50%) translate(${sx}px,${sy}px)` }}
+            title="Bubbled"
+          />
+        )}
+        {isTargetBubbled && (
+          <div
+            className={clsx(classes.Bubble, 'absolute nodrag pointer-events-none')}
+            style={{ transform: `translate(-50%, -50%) translate(${tx}px,${ty}px)` }}
+            title="Bubbled"
+          />
+        )}
 
         <div
           className="absolute flex items-center gap-1 pointer-events-none"

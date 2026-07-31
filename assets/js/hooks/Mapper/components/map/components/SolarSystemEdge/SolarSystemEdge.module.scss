@@ -69,8 +69,8 @@
     stroke-linecap: var(--rf-edge-bridge-linecap, round);
   }
 
-  &.DangerousBridge {
-    stroke: var(--rf-edge-bridge-dangerous, var(--eve-solar-system-status-color-dangerous, #af0000));
+  &.Dangerous {
+    stroke: var(--rf-edge-dangerous, var(--eve-solar-system-status-color-dangerous, #af0000));
   }
 }
 
@@ -164,4 +164,14 @@
   width: var(--rf-edge-label-icon-size, 8px);
   height: var(--rf-edge-label-icon-size, 8px);
   font-size: var(--rf-edge-label-icon-font-size, 8px);
+}
+
+// a bubble sits on the end of the connection it covers
+.Bubble {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px dashed var(--rf-edge-bubble, #ffa200);
+  background-color: transparent;
+  box-sizing: border-box;
 }
