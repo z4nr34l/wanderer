@@ -12,6 +12,7 @@ export enum UserSettingsRemoteProps {
   system_auto_tag = 'system_auto_tag',
   system_custom_label_name = 'system_custom_label_name',
   system_labels = 'system_labels',
+  rolling_fits = 'rolling_fits',
   bookmark_return_hole_ignore = 'bookmark_return_hole_ignore',
   bookmark_return_hole_symbol = 'bookmark_return_hole_symbol',
 }
@@ -28,6 +29,7 @@ export const DEFAULT_REMOTE_SETTINGS = {
   [UserSettingsRemoteProps.system_auto_tag]: '',
   [UserSettingsRemoteProps.system_custom_label_name]: '',
   [UserSettingsRemoteProps.system_labels]: getDefaultSystemLabels(),
+  [UserSettingsRemoteProps.rolling_fits]: [],
   [UserSettingsRemoteProps.bookmark_return_hole_ignore]: false,
   [UserSettingsRemoteProps.bookmark_return_hole_symbol]: '',
 };
@@ -44,6 +46,7 @@ export const UserSettingsRemoteList = [
   UserSettingsRemoteProps.system_auto_tag,
   UserSettingsRemoteProps.system_custom_label_name,
   UserSettingsRemoteProps.system_labels,
+  UserSettingsRemoteProps.rolling_fits,
   UserSettingsRemoteProps.bookmark_return_hole_ignore,
   UserSettingsRemoteProps.bookmark_return_hole_symbol,
 ];

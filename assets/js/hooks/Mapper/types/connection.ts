@@ -44,6 +44,7 @@ export type SolarSystemConnection = {
   ship_size_type: ShipSizeStatus;
   locked: boolean;
   dangerous?: boolean;
+  wormhole_type?: string | null;
   bubbled?: BubbleState;
 
   source: string;

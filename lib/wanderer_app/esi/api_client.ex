@@ -57,6 +57,20 @@ defmodule WandererApp.Esi.ApiClient do
           @character_tracking_pool
         )
 
+  # resolves names to ids in one call - used when reading a pasted fit
+  def post_universe_ids(names) when is_list(names),
+    do:
+      do_post_esi(
+        "/universe/ids/",
+        [
+          json: names,
+          params: %{
+            datasource: "tranquility"
+          }
+        ],
+        @general_pool
+      )
+
   def get_routes_custom(hubs, origin, params),
     do:
       do_post(

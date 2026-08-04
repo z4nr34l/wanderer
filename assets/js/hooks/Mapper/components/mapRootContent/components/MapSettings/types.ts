@@ -1,5 +1,6 @@
 import { InterfaceStoredSettings } from '@/hooks/Mapper/mapRootProvider/types.ts';
 import { SystemLabelDefinition } from '@/hooks/Mapper/constants/labels.ts';
+import { RollingFit } from '@/hooks/Mapper/constants/rollingFits.ts';
 
 export { UserSettingsRemoteProps } from '@/hooks/Mapper/constants/userSettings.ts';
 
@@ -15,6 +16,7 @@ export type UserSettingsRemote = {
   system_auto_tag: string;
   system_custom_label_name: string;
   system_labels: SystemLabelDefinition[];
+  rolling_fits: RollingFit[];
   bookmark_return_hole_ignore: boolean;
   bookmark_return_hole_symbol: string;
 };

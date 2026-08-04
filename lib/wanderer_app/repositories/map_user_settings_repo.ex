@@ -11,6 +11,7 @@ defmodule WandererApp.MapUserSettingsRepo do
     "system_auto_tag" => "",
     "system_custom_label_name" => "",
     "system_labels" => [],
+    "rolling_fits" => [],
     "bookmark_return_hole_ignore" => false,
     "bookmark_return_hole_symbol" => ""
   }

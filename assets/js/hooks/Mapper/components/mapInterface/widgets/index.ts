@@ -8,3 +8,4 @@ export * from './WRoutesUser';
 export * from './WRoutesPublic';
 export * from './WRoutesBy';
 export * from './CommentsWidget';
+export * from './RollingCalculator';

@@ -356,6 +356,7 @@ defmodule WandererAppWeb.MapEventHandler do
         locked: locked,
         dangerous: Map.get(connection, :dangerous, false),
         bubbled: Map.get(connection, :bubbled, 0),
+        wormhole_type: Map.get(connection, :wormhole_type),
         source: "#{solar_system_source}",
         target: "#{solar_system_target}"
       }

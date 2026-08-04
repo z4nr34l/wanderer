@@ -17,6 +17,8 @@ import { MassStatusActionsWrapper } from '@/hooks/Mapper/components/map/componen
 import { ShipSizeActionsWrapper } from '@/hooks/Mapper/components/map/components/ContextMenuConnection/ShipSizeActionsWrapper.tsx';
 import classes from './ContextMenuConnection.module.scss';
 import { getSystemStaticInfo } from '@/hooks/Mapper/mapRootProvider/hooks/useLoadSystemStatic.ts';
+import { useMapRootState } from '@/hooks/Mapper/mapRootProvider';
+import { WidgetsIds } from '@/hooks/Mapper/components/mapInterface/constants.tsx';
 import { isNullsecSpace } from '@/hooks/Mapper/components/map/helpers/isKnownSpace.ts';
 
 export interface ContextMenuConnectionProps {
@@ -46,6 +48,14 @@ export const ContextMenuConnection: React.FC<ContextMenuConnectionProps> = ({
   onHide,
   edge,
 }) => {
+  const { toggleWidgetVisibility, windowsSettings } = useMapRootState();
+
+  const openRollingCalculator = () => {
+    if (!windowsSettings.visible.includes(WidgetsIds.rolling)) {
+      toggleWidgetVisibility(WidgetsIds.rolling);
+    }
+  };
+
   const items: MenuItem[] = useMemo(() => {
     if (!edge) {
       return [];
@@ -150,6 +160,11 @@ export const ContextMenuConnection: React.FC<ContextMenuConnectionProps> = ({
         }),
         icon: PrimeIcons.LOCK,
         command: () => onToggleMassSave(!edge.data?.locked),
+      },
+      {
+        label: 'Rolling calculator',
+        icon: 'pi pi-calculator',
+        command: openRollingCalculator,
       },
       ...safetyItems,
       ...(bothNullsec
