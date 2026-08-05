@@ -45,6 +45,7 @@ export type SolarSystemConnection = {
   locked: boolean;
   dangerous?: boolean;
   wormhole_type?: string | null;
+  mass_status_updated_at?: string | null;
   bubbled?: BubbleState;
 
   source: string;

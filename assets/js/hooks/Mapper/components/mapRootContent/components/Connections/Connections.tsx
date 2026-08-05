@@ -17,6 +17,7 @@ import classes from './Connections.module.scss';
 import { InfoDrawer, SystemView, TimeAgo } from '@/hooks/Mapper/components/ui-kit';
 import { kgToTons } from '@/hooks/Mapper/utils/kgToTons.ts';
 import { PassageCard } from './PassageCard';
+import { RollingCalculator } from '@/hooks/Mapper/components/mapInterface/widgets';
 import { PassageMassDialog } from './PassageMassDialog';
 
 const sortByDate = (a: string, b: string) => new Date(a).getTime() - new Date(b).getTime();
@@ -150,6 +151,22 @@ export const Connections = ({ selectedConnection, onHide }: OnTheMapProps) => {
     return passages.reduce((acc, x) => acc + getPassageMass(x), 0);
   }, [passages]);
 
+  // rolling counts from the moment the mass status was marked, so only what went through after
+  // that is still missing from the hole
+  const massSinceMassStatus = useMemo(() => {
+    const markedAt = cnInfo?.mass_status_updated_at;
+
+    if (!markedAt) {
+      return 0;
+    }
+
+    const markedTime = new Date(markedAt).getTime();
+
+    return passages
+      .filter(x => x.inserted_at && new Date(x.inserted_at).getTime() > markedTime)
+      .reduce((acc, x) => acc + getPassageMass(x), 0);
+  }, [cnInfo, passages]);
+
   const handleEditPassage = useCallback((passage: PassageWithSourceTarget) => {
     setEditingPassage(passage);
   }, []);
@@ -253,6 +270,26 @@ export const Connections = ({ selectedConnection, onHide }: OnTheMapProps) => {
         <div className="w-full h-px bg-neutral-800 px-0.5"></div>
 
         <ConnectionPassages passages={preparedPassages} onEditPassage={handleEditPassage} />
+
+        {isWormhole && (
+          <>
+            <div className="w-full h-px bg-neutral-800 px-0.5" />
+
+            <div className="px-2 pb-2 flex flex-col gap-1">
+              <span className="text-stone-400 text-[12px] select-none flex items-center gap-2">
+                Rolling
+                <span className="px-1 rounded bg-amber-500/20 text-amber-300 text-[10px] uppercase tracking-wide">
+                  alpha
+                </span>
+              </span>
+              <RollingCalculator
+                connection={cnInfo}
+                passedMass={approximateMass}
+                massSinceMark={massSinceMassStatus}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       <PassageMassDialog

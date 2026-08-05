@@ -35,6 +35,7 @@ defmodule WandererApp.Api.MapConnection do
       :locked_at,
       :dangerous,
       :bubbled,
+      :mass_status_updated_at,
       :custom_info
     ])
 
@@ -181,6 +182,9 @@ defmodule WandererApp.Api.MapConnection do
     update :update_mass_status do
       accept [:mass_status]
       require_atomic? false
+
+      # rolling counts from the moment a status is marked, so remember when that was
+      change set_attribute(:mass_status_updated_at, &DateTime.utc_now/0)
     end
 
     update :update_time_status do
@@ -289,6 +293,11 @@ defmodule WandererApp.Api.MapConnection do
 
     attribute :locked, :boolean do
       public? true
+    end
+
+    # When the mass status was last set, so passages made after the mark can be counted
+    attribute :mass_status_updated_at, :utc_datetime_usec do
+      allow_nil? true
     end
 
     # Whether the connection itself is considered dangerous, set by hand rather than derived

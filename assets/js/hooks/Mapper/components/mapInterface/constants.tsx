@@ -9,7 +9,6 @@ import {
   WRoutesUser,
   WRoutesBy,
   WSystemKills,
-  RollingCalculator,
 } from '@/hooks/Mapper/components/mapInterface/widgets';
 
 export const CURRENT_WINDOWS_VERSION = 9;
@@ -25,7 +24,6 @@ export enum WidgetsIds {
   kills = 'kills',
   comments = 'comments',
   userRoutes = 'userRoutes',
-  rolling = 'rolling',
 }
 
 export const STORED_VISIBLE_WIDGETS_DEFAULT = [
@@ -79,20 +77,6 @@ export const DEFAULT_WIDGETS: WindowProps[] = [
     content: () => <WRoutesUser />,
   },
   {
-    id: WidgetsIds.rolling,
-    position: { x: 270, y: 530 },
-    size: { width: 290, height: 260 },
-    zIndex: 0,
-    content: () => <RollingCalculator />,
-  },
-  {
-    id: WidgetsIds.rolling,
-    position: { x: 270, y: 530 },
-    size: { width: 290, height: 260 },
-    zIndex: 0,
-    content: () => <RollingCalculator />,
-  },
-  {
     id: WidgetsIds.structures,
     position: { x: 10, y: 730 },
     size: { width: 510, height: 200 },
@@ -140,10 +124,6 @@ export const WIDGETS_CHECKBOXES_PROPS: WidgetsCheckboxesType = [
   {
     id: WidgetsIds.routesBy,
     label: 'Routes By',
-  },
-  {
-    id: WidgetsIds.rolling,
-    label: 'Rolling',
   },
   {
     id: WidgetsIds.userRoutes,

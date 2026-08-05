@@ -12,13 +12,10 @@ export const MapInterface = () => {
     }
 
     return windowsSettings.windows
-      .map(x => {
-        const content = DEFAULT_WIDGETS.find(y => y.id === x.id)?.content;
-        return {
-          ...x,
-          content: content!,
-        };
-      })
+      .map(x => ({ ...x, content: DEFAULT_WIDGETS.find(y => y.id === x.id)?.content }))
+      // a stored layout can name a widget this version no longer has - drop it instead of
+      // rendering a window with nothing to call
+      .filter((x): x is typeof x & { content: NonNullable<typeof x.content> } => x.content != null)
       .filter(x => windowsSettings.visible.some(j => x.id === j));
   }, [windowsSettings]);
 

@@ -357,6 +357,7 @@ defmodule WandererAppWeb.MapEventHandler do
         dangerous: Map.get(connection, :dangerous, false),
         bubbled: Map.get(connection, :bubbled, 0),
         wormhole_type: Map.get(connection, :wormhole_type),
+        mass_status_updated_at: Map.get(connection, :mass_status_updated_at),
         source: "#{solar_system_source}",
         target: "#{solar_system_target}"
       }
