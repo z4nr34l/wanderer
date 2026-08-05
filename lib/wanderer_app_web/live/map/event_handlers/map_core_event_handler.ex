@@ -352,7 +352,7 @@ defmodule WandererAppWeb.MapCoreEventHandler do
 
   def handle_ui_event(
         "save_default_settings",
-        %{"settings" => settings},
+        %{"settings" => settings} = params,
         %{
           assigns: %{
             map_id: map_id,
@@ -363,7 +363,7 @@ defmodule WandererAppWeb.MapCoreEventHandler do
       ) do
     # Check if user is map admin
     if user_permissions.admin_map do
-      case save_default_settings(map_id, settings, current_user) do
+      case save_default_settings(map_id, settings, Map.get(params, "remote_settings"), current_user) do
         {:ok, _default_settings} ->
           {:reply, %{success: true}, socket}
 
@@ -440,7 +440,7 @@ defmodule WandererAppWeb.MapCoreEventHandler do
     {:noreply, socket}
   end
 
-  defp save_default_settings(map_id, settings, current_user) do
+  defp save_default_settings(map_id, settings, remote_settings, current_user) do
     # Find the character to use as actor
     actor =
       case current_user.characters do
@@ -449,12 +449,19 @@ defmodule WandererAppWeb.MapCoreEventHandler do
       end
 
     if actor do
+      encoded_remote_settings = encode_remote_settings(remote_settings)
+
       case WandererApp.Api.MapDefaultSettings.get_by_map_id(%{map_id: map_id}) do
         {:ok, [existing | _]} ->
-          WandererApp.Api.MapDefaultSettings.update(existing, %{settings: settings}, actor: actor)
+          WandererApp.Api.MapDefaultSettings.update(
+            existing,
+            %{settings: settings, remote_settings: encoded_remote_settings},
+            actor: actor
+          )
 
         _error ->
-          WandererApp.Api.MapDefaultSettings.create(%{map_id: map_id, settings: settings},
+          WandererApp.Api.MapDefaultSettings.create(
+            %{map_id: map_id, settings: settings, remote_settings: encoded_remote_settings},
             actor: actor
           )
       end
@@ -463,6 +470,11 @@ defmodule WandererAppWeb.MapCoreEventHandler do
       {:error, :no_character}
     end
   end
+
+  defp encode_remote_settings(nil), do: nil
+  defp encode_remote_settings(settings) when is_binary(settings), do: settings
+  defp encode_remote_settings(settings) when is_map(settings), do: Jason.encode!(settings)
+  defp encode_remote_settings(_settings), do: nil
 
   defp maybe_start_map(map_id) do
     {:ok, map_server_started} = WandererApp.Cache.lookup("map_#{map_id}:started", false)
@@ -536,6 +548,8 @@ defmodule WandererAppWeb.MapCoreEventHandler do
              owner_id,
              current_user_characters |> Enum.map(& &1.id)
            ),
+         {:ok, _seeded} <-
+           WandererApp.MapUserSettingsRepo.maybe_seed_from_map_defaults(map_id, current_user_id),
          {:ok, map_user_settings} <- WandererApp.MapUserSettingsRepo.get(map_id, current_user_id),
          {:ok, %{characters: available_map_characters}} =
            WandererApp.Maps.load_characters(map, current_user_id) do

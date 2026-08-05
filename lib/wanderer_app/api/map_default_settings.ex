@@ -48,14 +48,15 @@ defmodule WandererApp.Api.MapDefaultSettings do
   actions do
     default_accept [
       :map_id,
-      :settings
+      :settings,
+      :remote_settings
     ]
 
     defaults [:read, :destroy]
 
     create :create do
       primary?(true)
-      accept [:map_id, :settings]
+      accept [:map_id, :settings, :remote_settings]
 
       change relate_actor(:created_by)
       change relate_actor(:updated_by)
@@ -68,7 +69,7 @@ defmodule WandererApp.Api.MapDefaultSettings do
 
     update :update do
       primary?(true)
-      accept [:settings]
+      accept [:settings, :remote_settings]
 
       # Required for managing relationships
       require_atomic? false
@@ -100,6 +101,13 @@ defmodule WandererApp.Api.MapDefaultSettings do
       public? true
       constraints min_length: 2
       description "JSON string containing the default map settings"
+    end
+
+    attribute :remote_settings, :string do
+      allow_nil? true
+      public? true
+
+      description "JSON string of the per user settings a new member of this map starts with"
     end
 
     create_timestamp(:inserted_at)

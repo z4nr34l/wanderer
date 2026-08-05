@@ -56,6 +56,22 @@ defmodule WandererApp.MapUserSettingsRepo do
     end
   end
 
+  @doc """
+  Gives a member opening the map for the first time the settings the map's admin saved as default.
+
+  Without this they start on the built in defaults, and anything the map agreed on - labels above
+  all - has to be recreated by hand from someone else's screenshot.
+  """
+  def maybe_seed_from_map_defaults(map_id, user_id) do
+    with {:ok, nil} <- get(map_id, user_id),
+         {:ok, [%{remote_settings: remote_settings} | _]} when is_binary(remote_settings) <-
+           WandererApp.Api.MapDefaultSettings.get_by_map_id(%{map_id: map_id}) do
+      create_or_update(map_id, user_id, remote_settings)
+    else
+      _ -> {:ok, nil}
+    end
+  end
+
   def get_hubs(map_id, user_id) do
     case WandererApp.MapUserSettingsRepo.get(map_id, user_id) do
       {:ok, user_settings} when not is_nil(user_settings) ->
