@@ -4,6 +4,8 @@ import { OutCommand } from '@/hooks/Mapper/types/mapHandlers.ts';
 import { DEFAULT_REMOTE_SETTINGS } from '@/hooks/Mapper/constants/userSettings.ts';
 import { UserSettingsRemote } from '@/hooks/Mapper/components/mapRootContent/components/MapSettings/types.ts';
 import { parseSystemLabels, SystemLabelDefinition } from '@/hooks/Mapper/constants/labels.ts';
+import { useMapEventListener } from '@/hooks/Mapper/events';
+import { CommandUserSettingsUpdated, Commands } from '@/hooks/Mapper/types/mapHandlers.ts';
 
 export type UseUserRemoteSettingsData = {
   userRemoteSettings: UserSettingsRemote;
@@ -60,6 +62,20 @@ export const useUserRemoteSettings = (outCommand: OutCommandHandler): UseUserRem
       clearTimeout(retryTimer);
     };
   }, [refreshUserRemoteSettings]);
+
+  useMapEventListener(event => {
+    if (event.name !== Commands.userSettingsUpdated) {
+      return;
+    }
+
+    const { settings } = event.data as CommandUserSettingsUpdated;
+    if (settings.system_labels) {
+      setUserRemoteSettings(prev => ({
+        ...prev,
+        system_labels: parseSystemLabels(settings.system_labels),
+      }));
+    }
+  });
 
   const systemLabels = useMemo(
     () => parseSystemLabels(userRemoteSettings.system_labels),

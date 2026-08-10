@@ -61,7 +61,21 @@ export const MapSettingsProvider = ({ children }: WithChildren) => {
       const { userRemoteSettings, interfaceSettings, outCommand, setInterfaceSettings, setUserRemoteSettings } =
         refVars.current;
 
-      if (UserSettingsRemoteList.includes(prop as any)) {
+      if (prop === 'system_labels') {
+        const response = await outCommand<{ success: boolean; system_labels?: SystemLabelDefinition[] }>({
+          type: OutCommand.updateMapSystemLabels,
+          data: { system_labels: value },
+        });
+
+        if (!response?.success || !response.system_labels) {
+          throw new Error('Failed to save map system labels');
+        }
+
+        setUserRemoteSettings({
+          ...userRemoteSettings,
+          system_labels: response.system_labels,
+        });
+      } else if (UserSettingsRemoteList.includes(prop as any)) {
         const newRemoteSettings = {
           ...userRemoteSettings,
           [prop]: value,

@@ -45,7 +45,6 @@ export const UserSettingsRemoteList = [
   UserSettingsRemoteProps.bookmark_auto_temp_name,
   UserSettingsRemoteProps.system_auto_tag,
   UserSettingsRemoteProps.system_custom_label_name,
-  UserSettingsRemoteProps.system_labels,
   UserSettingsRemoteProps.rolling_fits,
   UserSettingsRemoteProps.bookmark_return_hole_ignore,
   UserSettingsRemoteProps.bookmark_return_hole_symbol,

@@ -14,6 +14,15 @@ defmodule WandererApp.MapRepo do
     "allowed_paste_for" => "add_system"
   }
 
+  @default_system_labels [
+    %{"id" => "a", "name" => "A", "color" => "#2d803b"},
+    %{"id" => "b", "name" => "B", "color" => "#3d94af"},
+    %{"id" => "c", "name" => "C", "color" => "#3d94af"},
+    %{"id" => "1", "name" => "1", "color" => "#563daf"},
+    %{"id" => "2", "name" => "2", "color" => "#8f3daf"},
+    %{"id" => "3", "name" => "3", "color" => "#3d65af"}
+  ]
+
   def get(map_id, relationships \\ []) do
     map_id
     |> WandererApp.Api.Map.by_id()
@@ -179,6 +188,85 @@ defmodule WandererApp.MapRepo do
       _ ->
         {:error, :map_not_found}
     end
+  end
+
+  def get_system_labels(map_id) do
+    case get(map_id) do
+      {:ok, map} -> {:ok, system_labels_to_form_data(map)}
+      error -> error
+    end
+  end
+
+  def update_system_labels(map_id, labels) do
+    with {:ok, normalized_labels} <- normalize_system_labels(labels),
+         {:ok, map} <- get(map_id),
+         {:ok, updated_map} <-
+           WandererApp.Api.Map.update_system_labels(map, %{
+             system_labels: Jason.encode!(normalized_labels)
+           }) do
+      {:ok, updated_map, normalized_labels}
+    end
+  end
+
+  def system_labels_to_form_data(%{system_labels: labels}) when is_binary(labels) do
+    case Jason.decode(labels) do
+      {:ok, decoded} ->
+        case normalize_system_labels(decoded) do
+          {:ok, normalized} -> normalized
+          _ -> @default_system_labels
+        end
+
+      _ ->
+        @default_system_labels
+    end
+  end
+
+  def system_labels_to_form_data(_), do: @default_system_labels
+
+  def default_system_labels, do: @default_system_labels
+
+  def normalize_system_labels(labels) when is_list(labels) and labels != [] and length(labels) <= 64 do
+    with {:ok, normalized} <- normalize_label_entries(labels),
+         true <- unique_label_ids?(normalized) do
+      {:ok, normalized}
+    else
+      _ -> {:error, :invalid_system_labels}
+    end
+  end
+
+  def normalize_system_labels(_), do: {:error, :invalid_system_labels}
+
+  defp normalize_label_entries(labels) do
+    Enum.reduce_while(labels, {:ok, []}, fn label, {:ok, acc} ->
+      case normalize_label(label) do
+        {:ok, normalized} -> {:cont, {:ok, [normalized | acc]}}
+        error -> {:halt, error}
+      end
+    end)
+    |> case do
+      {:ok, normalized} -> {:ok, Enum.reverse(normalized)}
+      error -> error
+    end
+  end
+
+  defp normalize_label(%{"id" => id, "name" => name, "color" => color})
+       when is_binary(id) and is_binary(name) and is_binary(color) do
+    id = String.trim(id)
+    name = String.trim(name)
+
+    if id != "" and name != "" and String.length(id) <= 32 and String.length(name) <= 64 and
+         Regex.match?(~r/^#[0-9a-fA-F]{6}$/, color) do
+      {:ok, %{"id" => id, "name" => name, "color" => String.downcase(color)}}
+    else
+      {:error, :invalid_system_labels}
+    end
+  end
+
+  defp normalize_label(_), do: {:error, :invalid_system_labels}
+
+  defp unique_label_ids?(labels) do
+    ids = Enum.map(labels, & &1["id"])
+    length(ids) == length(Enum.uniq(ids))
   end
 
   def update_options(map, options),

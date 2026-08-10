@@ -10,7 +10,6 @@ defmodule WandererApp.MapUserSettingsRepo do
     "bookmark_custom_mapping" => %{},
     "system_auto_tag" => "",
     "system_custom_label_name" => "",
-    "system_labels" => [],
     "rolling_fits" => [],
     "bookmark_return_hole_ignore" => false,
     "bookmark_return_hole_symbol" => ""
@@ -57,16 +56,14 @@ defmodule WandererApp.MapUserSettingsRepo do
   end
 
   @doc """
-  Gives a member opening the map for the first time the settings the map's admin saved as default.
-
-  Without this they start on the built in defaults, and anything the map agreed on - labels above
-  all - has to be recreated by hand from someone else's screenshot.
+  Gives a member opening the map for the first time the per-user settings the map's admin saved as
+  default. System-label definitions are map data and are never copied into a user's settings.
   """
   def maybe_seed_from_map_defaults(map_id, user_id) do
     with {:ok, nil} <- get(map_id, user_id),
          {:ok, [%{remote_settings: remote_settings} | _]} when is_binary(remote_settings) <-
            WandererApp.Api.MapDefaultSettings.get_by_map_id(%{map_id: map_id}) do
-      create_or_update(map_id, user_id, remote_settings)
+      create_or_update(map_id, user_id, strip_system_labels(remote_settings))
     else
       _ -> {:ok, nil}
     end
@@ -105,6 +102,13 @@ defmodule WandererApp.MapUserSettingsRepo do
   def to_form_data!(user_settings) do
     {:ok, data} = to_form_data(user_settings)
     data
+  end
+
+  defp strip_system_labels(settings) do
+    case Jason.decode(settings) do
+      {:ok, decoded} when is_map(decoded) -> decoded |> Map.delete("system_labels") |> Jason.encode!()
+      _ -> @default_form_data |> Jason.encode!()
+    end
   end
 
   def get_boolean_setting(settings, key, default \\ false) do

@@ -55,6 +55,7 @@ defmodule WandererApp.Api.Map do
     define(:update_acls, action: :update_acls)
     define(:update_hubs, action: :update_hubs)
     define(:update_options, action: :update_options)
+    define(:update_system_labels, action: :update_system_labels)
     define(:assign_owner, action: :assign_owner)
     define(:mark_as_deleted, action: :mark_as_deleted)
     define(:update_api_key, action: :update_api_key)
@@ -192,6 +193,11 @@ defmodule WandererApp.Api.Map do
 
     update :update_options do
       accept [:options]
+      require_atomic? false
+    end
+
+    update :update_system_labels do
+      accept [:system_labels]
       require_atomic? false
     end
 
@@ -350,6 +356,11 @@ defmodule WandererApp.Api.Map do
       allow_nil?(true)
 
       default([])
+    end
+
+    attribute :system_labels, :string do
+      allow_nil?(false)
+      default("[{\"id\":\"a\",\"name\":\"A\",\"color\":\"#2d803b\"},{\"id\":\"b\",\"name\":\"B\",\"color\":\"#3d94af\"},{\"id\":\"c\",\"name\":\"C\",\"color\":\"#3d94af\"},{\"id\":\"1\",\"name\":\"1\",\"color\":\"#563daf\"},{\"id\":\"2\",\"name\":\"2\",\"color\":\"#8f3daf\"},{\"id\":\"3\",\"name\":\"3\",\"color\":\"#3d65af\"}]")
     end
 
     attribute :scope, :atom do

@@ -10,6 +10,8 @@ import {
   SystemLabelDefinition,
 } from '@/hooks/Mapper/constants/labels.ts';
 import { SYSTEM_LABELS_SETTINGS_PROPS } from '../constants.ts';
+import { useMapCheckPermissions } from '@/hooks/Mapper/mapRootProvider/hooks/api';
+import { UserPermission } from '@/hooks/Mapper/types/permissions.ts';
 
 type LabelRowProps = {
   label: SystemLabelDefinition;
@@ -18,9 +20,10 @@ type LabelRowProps = {
   onChange: (patch: Partial<SystemLabelDefinition>) => void;
   onMove: (offset: number) => void;
   onRemove: () => void;
+  disabled: boolean;
 };
 
-const LabelRow = ({ label, isFirst, isLast, onChange, onMove, onRemove }: LabelRowProps) => {
+const LabelRow = ({ label, isFirst, isLast, onChange, onMove, onRemove, disabled }: LabelRowProps) => {
   const [name, setName] = useState(label.name);
 
   useEffect(() => setName(label.name), [label.name]);
@@ -31,6 +34,7 @@ const LabelRow = ({ label, isFirst, isLast, onChange, onMove, onRemove }: LabelR
         type="color"
         className="w-[26px] h-[26px] bg-transparent border border-stone-700 rounded cursor-pointer p-0"
         value={label.color}
+        disabled={disabled}
         onChange={e => onChange({ color: e.target.value })}
         title="Label color"
       />
@@ -38,6 +42,7 @@ const LabelRow = ({ label, isFirst, isLast, onChange, onMove, onRemove }: LabelR
       <InputText
         className="text-sm w-full py-1 px-2"
         value={name}
+        disabled={disabled}
         onChange={e => setName(e.target.value)}
         onBlur={() => name !== label.name && onChange({ name })}
         placeholder="Label name"
@@ -49,7 +54,7 @@ const LabelRow = ({ label, isFirst, isLast, onChange, onMove, onRemove }: LabelR
           outlined
           icon="pi pi-arrow-up"
           className="text-xs py-1 px-2 h-auto min-h-[24px]"
-          disabled={isFirst}
+          disabled={disabled || isFirst}
           onClick={() => onMove(-1)}
         />
         <WdButton
@@ -57,7 +62,7 @@ const LabelRow = ({ label, isFirst, isLast, onChange, onMove, onRemove }: LabelR
           outlined
           icon="pi pi-arrow-down"
           className="text-xs py-1 px-2 h-auto min-h-[24px]"
-          disabled={isLast}
+          disabled={disabled || isLast}
           onClick={() => onMove(1)}
         />
       </div>
@@ -69,6 +74,7 @@ const LabelRow = ({ label, isFirst, isLast, onChange, onMove, onRemove }: LabelR
           severity="danger"
           icon="pi pi-trash"
           className="text-xs py-1 px-2 h-auto min-h-[24px]"
+          disabled={disabled}
           onClick={onRemove}
         />
       </WdTooltipWrapper>
@@ -78,6 +84,7 @@ const LabelRow = ({ label, isFirst, isLast, onChange, onMove, onRemove }: LabelR
 
 export const LabelsSettings = () => {
   const { settings, updateSetting, renderSettingItem } = useMapSettings();
+  const canUpdateLabels = useMapCheckPermissions([UserPermission.UPDATE_SYSTEM]);
 
   const labels = useMemo(() => parseSystemLabels(settings.system_labels), [settings.system_labels]);
 
@@ -123,9 +130,17 @@ export const LabelsSettings = () => {
     <div className="w-full h-full min-h-0 flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-1">
       <div className="flex justify-between items-center gap-2 shrink-0">
         <span className="text-stone-400 text-[12px]">
-          Name is shown both in the right-click menu and on the system.
+          {canUpdateLabels
+            ? 'Labels are shared by everyone on this map. Names appear in the right-click menu and on systems.'
+            : 'Labels are shared by everyone on this map. You need system-edit permission to change them.'}
         </span>
-        <WdButton size="small" outlined className="text-xs py-1 px-2 h-auto min-h-[24px]" onClick={handleReset}>
+        <WdButton
+          size="small"
+          outlined
+          className="text-xs py-1 px-2 h-auto min-h-[24px]"
+          disabled={!canUpdateLabels}
+          onClick={handleReset}
+        >
           Reset to Default
         </WdButton>
       </div>
@@ -147,6 +162,7 @@ export const LabelsSettings = () => {
             onChange={patch => handleChange(index, patch)}
             onMove={offset => handleMove(index, offset)}
             onRemove={() => handleRemove(index)}
+            disabled={!canUpdateLabels}
           />
         ))}
       </div>
@@ -158,6 +174,7 @@ export const LabelsSettings = () => {
           icon="pi pi-plus"
           label="Add label"
           className="text-xs py-1 px-2"
+          disabled={!canUpdateLabels}
           onClick={handleAdd}
         />
       </div>

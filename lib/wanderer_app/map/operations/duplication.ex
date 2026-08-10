@@ -41,6 +41,7 @@ defmodule WandererApp.Map.Operations.Duplication do
     # Wrap all duplication operations in a transaction
     WandererApp.Repo.transaction(fn ->
       with {:ok, source_map} <- load_source_map(source_map_id),
+           {:ok, new_map} <- copy_map_system_labels(source_map, new_map),
            {:ok, system_mapping} <- copy_systems(source_map, new_map),
            {:ok, _connections} <- copy_connections(source_map, new_map, system_mapping),
            {:ok, _signatures} <-
@@ -64,6 +65,10 @@ defmodule WandererApp.Map.Operations.Duplication do
       {:ok, map} -> {:ok, map}
       {:error, _} -> {:error, {:not_found, "Source map not found"}}
     end
+  end
+
+  defp copy_map_system_labels(source_map, new_map) do
+    Api.Map.update_system_labels(new_map, %{system_labels: source_map.system_labels})
   end
 
   # Copy all systems from source map to new map

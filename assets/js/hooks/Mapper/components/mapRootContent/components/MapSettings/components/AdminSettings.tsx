@@ -67,13 +67,12 @@ export const AdminSettings = () => {
     }
 
     let response: { success: boolean } | undefined;
+    const { system_labels: _mapSystemLabels, ...perUserRemoteSettings } = userRemoteSettings;
 
     try {
       response = await outCommand({
         type: OutCommand.saveDefaultSettings,
-        // labels and the other per user settings live on the server, not in the browser, so they
-        // have to be sent as well or a new member starts from the built in defaults
-        data: { settings, remote_settings: userRemoteSettings },
+        data: { settings, remote_settings: perUserRemoteSettings },
       });
     } catch (err) {
       callToastError(toast.current, 'Something went wrong while saving settings');
@@ -111,8 +110,8 @@ export const AdminSettings = () => {
         {!isDirty && <span className="text-red-500/70 text-[12px]">*Local and remote are identical.</span>}
 
         <span className="text-stone-500 text-[12px]">
-          *Will save your current settings, including labels and the other settings kept against your account, as the
-          default for anyone opening this map for the first time. This overwrites the existing default settings.
+          *Will save your current browser and per-user settings as the default for anyone opening this map for the
+          first time. Labels are already shared map-wide. This overwrites the existing default settings.
         </span>
       </div>
 
