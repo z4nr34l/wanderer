@@ -1,0 +1,52 @@
+.Root {
+  --dock-height: calc(54px + env(safe-area-inset-bottom));
+
+  position: absolute;
+  inset: 0;
+  z-index: 500;
+  pointer-events: none;
+}
+
+.Backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+}
+
+.Sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--dock-height);
+  height: 62%;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+}
+
+.SheetBar {
+  height: 22px;
+}
+
+.Grip {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(214, 211, 209, 0.55);
+}
+
+.Dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--dock-height);
+  padding-bottom: env(safe-area-inset-bottom);
+  pointer-events: auto;
+}
+
+.DockButton {
+  min-width: 58px;
+  flex: 0 0 auto;
+}

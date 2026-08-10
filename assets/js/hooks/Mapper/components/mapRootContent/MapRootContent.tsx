@@ -17,6 +17,8 @@ import { Commands } from '@/hooks/Mapper/types';
 import { PingsInterface } from '@/hooks/Mapper/components/mapInterface/components';
 import { OldSettingsDialog } from '@/hooks/Mapper/components/mapRootContent/components/OldSettingsDialog.tsx';
 import { TopSearch } from '@/hooks/Mapper/components/mapRootContent/components/TopSearch';
+import { useIsMobile } from '@/hooks/Mapper/hooks/useIsMobile.ts';
+import clsx from 'clsx';
 
 export interface MapRootContentProps {}
 
@@ -29,6 +31,11 @@ export const MapRootContent = ({}: MapRootContentProps) => {
   const { isShowMenu } = interfaceSettings;
   const { showCharacterActivity } = data;
   const { handleHideCharacterActivity } = useCharacterActivityHandlers();
+  const isMobile = useIsMobile();
+
+  // the interface normally stops short of the bottom of the screen; the mobile dock lives down
+  // there, so it gets the full height
+  const rootHeight = isMobile ? 'h-full' : 'h-[calc(100%-3.5rem)]';
 
   const themeClass = `${interfaceSettings.theme ?? 'default'}-theme`;
 
@@ -58,12 +65,17 @@ export const MapRootContent = ({}: MapRootContentProps) => {
     <div className={themeClass}>
       <Layout map={<MapWrapper />}>
         {!isShowMenu ? (
-          <div className="absolute top-0 left-14 w-[calc(100%-3.5rem)] h-[calc(100%-3.5rem)] pointer-events-none">
+          <div className={clsx('absolute top-0 left-14 w-[calc(100%-3.5rem)] pointer-events-none', rootHeight)}>
             <div className="absolute top-0 left-0 w-[calc(100%-3.5rem)] h-full pointer-events-none">
               <Topbar />
               {mapInterface}
             </div>
-            <div className="absolute top-0 right-0 w-14 h-[calc(100%+3.5rem)] pointer-events-auto">
+            <div
+              className={clsx(
+                'absolute top-0 right-0 w-14 pointer-events-auto',
+                isMobile ? 'h-full' : 'h-[calc(100%+3.5rem)]',
+              )}
+            >
               <RightBar
                 onShowOnTheMap={handleShowOnTheMap}
                 onShowMapSettings={handleShowMapSettings}
@@ -74,7 +86,7 @@ export const MapRootContent = ({}: MapRootContentProps) => {
             </div>
           </div>
         ) : (
-          <div className="absolute top-0 left-14 w-[calc(100%-3.5rem)] h-[calc(100%-3.5rem)] pointer-events-none">
+          <div className={clsx('absolute top-0 left-14 w-[calc(100%-3.5rem)] pointer-events-none', rootHeight)}>
             <Topbar>
               <div className="flex items-center ml-1">
                 <TopSearch />

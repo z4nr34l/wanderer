@@ -99,6 +99,19 @@ export const DEFAULT_WIDGETS: WindowProps[] = [
   },
 ];
 
+// the mobile dock has room for an icon and a word, not a window header
+export const WIDGET_ICONS: Record<WidgetsIds, string> = {
+  [WidgetsIds.info]: 'pi pi-info-circle',
+  [WidgetsIds.signatures]: 'pi pi-list',
+  [WidgetsIds.local]: 'pi pi-users',
+  [WidgetsIds.routes]: 'pi pi-directions',
+  [WidgetsIds.routesBy]: 'pi pi-directions-alt',
+  [WidgetsIds.userRoutes]: 'pi pi-map',
+  [WidgetsIds.structures]: 'pi pi-building',
+  [WidgetsIds.kills]: 'pi pi-bolt',
+  [WidgetsIds.comments]: 'pi pi-comments',
+};
+
 type WidgetsCheckboxesType = {
   id: WidgetsIds;
   label: string;
