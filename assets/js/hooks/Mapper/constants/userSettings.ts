@@ -15,6 +15,10 @@ export enum UserSettingsRemoteProps {
   rolling_fits = 'rolling_fits',
   bookmark_return_hole_ignore = 'bookmark_return_hole_ignore',
   bookmark_return_hole_symbol = 'bookmark_return_hole_symbol',
+  connection_bubble_color = 'connection_bubble_color',
+  connection_bubble_size = 'connection_bubble_size',
+  connection_bubble_border = 'connection_bubble_border',
+  connection_bubble_opacity = 'connection_bubble_opacity',
 }
 
 export const DEFAULT_REMOTE_SETTINGS = {
@@ -32,6 +36,11 @@ export const DEFAULT_REMOTE_SETTINGS = {
   [UserSettingsRemoteProps.rolling_fits]: [],
   [UserSettingsRemoteProps.bookmark_return_hole_ignore]: false,
   [UserSettingsRemoteProps.bookmark_return_hole_symbol]: '',
+  // empty means "whatever the theme says" - see BUBBLE_CSS_VARS
+  [UserSettingsRemoteProps.connection_bubble_color]: '',
+  [UserSettingsRemoteProps.connection_bubble_size]: 0,
+  [UserSettingsRemoteProps.connection_bubble_border]: 0,
+  [UserSettingsRemoteProps.connection_bubble_opacity]: 0,
 };
 
 export const UserSettingsRemoteList = [
@@ -48,4 +57,8 @@ export const UserSettingsRemoteList = [
   UserSettingsRemoteProps.rolling_fits,
   UserSettingsRemoteProps.bookmark_return_hole_ignore,
   UserSettingsRemoteProps.bookmark_return_hole_symbol,
+  UserSettingsRemoteProps.connection_bubble_color,
+  UserSettingsRemoteProps.connection_bubble_size,
+  UserSettingsRemoteProps.connection_bubble_border,
+  UserSettingsRemoteProps.connection_bubble_opacity,
 ];

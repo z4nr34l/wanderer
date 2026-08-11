@@ -361,7 +361,11 @@ defmodule WandererAppWeb.MapCoreEventHandler do
         "system_custom_label_name",
         "rolling_fits",
         "bookmark_return_hole_ignore",
-        "bookmark_return_hole_symbol"
+        "bookmark_return_hole_symbol",
+        "connection_bubble_color",
+        "connection_bubble_size",
+        "connection_bubble_border",
+        "connection_bubble_opacity"
       ])
       |> Jason.encode!()
 

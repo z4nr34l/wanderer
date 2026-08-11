@@ -19,6 +19,10 @@ export type UserSettingsRemote = {
   rolling_fits: RollingFit[];
   bookmark_return_hole_ignore: boolean;
   bookmark_return_hole_symbol: string;
+  connection_bubble_color: string;
+  connection_bubble_size: number;
+  connection_bubble_border: number;
+  connection_bubble_opacity: number;
 };
 
 export type UserSettings = UserSettingsRemote & InterfaceStoredSettings;
@@ -26,9 +30,15 @@ export type UserSettings = UserSettingsRemote & InterfaceStoredSettings;
 export type SettingsListItem = {
   prop: keyof UserSettings;
   label: string;
-  type: 'checkbox' | 'dropdown' | 'text' | 'template';
+  type: 'checkbox' | 'dropdown' | 'text' | 'template' | 'color' | 'number';
   options?: { label: string; value: string }[];
   placeholder?: string;
   helperText?: string;
   dependsOn?: keyof UserSettings;
+  // 'number' only: the range offered, and the unit shown after the field
+  min?: number;
+  max?: number;
+  suffix?: string;
+  // 'color' and 'number': what the theme uses when the setting is left empty
+  fallback?: string;
 };
