@@ -29,6 +29,8 @@ defmodule WandererApp.Esi.ApiClient do
 
   def get_server_status, do: do_get("/status", [], @cache_opts)
 
+  def get_sovereignty_map, do: do_get("/sovereignty/map/", [], @cache_opts)
+
   def set_autopilot_waypoint(add_to_beginning, clear_other_waypoints, destination_id, opts \\ []),
     do:
       do_post_esi(

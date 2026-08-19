@@ -9,7 +9,14 @@ import { Regions, REGIONS_MAP, SPACE_TO_CLASS } from '@/hooks/Mapper/constants';
 import { isWormholeSpace } from '@/hooks/Mapper/components/map/helpers/isWormholeSpace';
 import { getSystemClassStyles } from '@/hooks/Mapper/components/map/helpers';
 import { sortWHClasses } from '@/hooks/Mapper/helpers';
-import { CharacterTypeRaw, OutCommand, PingType, SystemSignature, WormholeDataRaw } from '@/hooks/Mapper/types';
+import {
+  CharacterTypeRaw,
+  OutCommand,
+  PingType,
+  SovereigntyInfo,
+  SystemSignature,
+  WormholeDataRaw,
+} from '@/hooks/Mapper/types';
 import { useUnsplashedSignatures } from './useUnsplashedSignatures';
 import { useSystemName } from './useSystemName';
 import { LabelInfo, useLabelsInfo } from './useLabelsInfo';
@@ -35,6 +42,7 @@ export interface SolarSystemNodeVars {
   sortedStatics: Array<string | number>;
   effectName: string | null;
   regionName: string | null;
+  sovereignty?: SovereigntyInfo | null;
   solarSystemId: string;
   solarSystemName: string | null;
   locked: boolean;
@@ -93,6 +101,7 @@ export const useSolarSystemNode = (props: NodeProps<MapSolarSystemType>): SolarS
     is_shattered,
     solar_system_name,
     constellation_name,
+    sovereignty,
   } = systemStaticInfo;
 
   const { isShowUnsplashedSignatures } = interfaceSettings;
@@ -219,6 +228,7 @@ export const useSolarSystemNode = (props: NodeProps<MapSolarSystemType>): SolarS
     classTitle: class_title,
     temporaryName: computedTemporaryName,
     regionName,
+    sovereignty,
     solarSystemName: solar_system_name,
     isRally,
     description,

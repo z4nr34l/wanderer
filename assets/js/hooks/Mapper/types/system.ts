@@ -65,6 +65,12 @@ export const SYSTEM_STATIC_INFO_MAP = {
   [SolarSystemStaticInfoRawNames.sunTypeId]: SolarSystemStaticInfoNames.sunTypeId,
 };
 
+export type SovereigntyInfo = {
+  alliance_id: number;
+  alliance_name: string;
+  alliance_ticker: string;
+};
+
 export type SolarSystemStaticInfoRaw = {
   region_id: number;
   constellation_id: number;
@@ -84,6 +90,8 @@ export type SolarSystemStaticInfoRaw = {
   wandering: string[];
   triglavian_invasion_status: string;
   sun_type_id: number;
+  // only null sec systems under alliance sovereignty carry this
+  sovereignty?: SovereigntyInfo | null;
 };
 
 export type SolarSystemStaticInfo = {

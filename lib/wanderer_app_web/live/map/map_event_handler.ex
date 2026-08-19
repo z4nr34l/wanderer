@@ -445,4 +445,12 @@ defmodule WandererAppWeb.MapEventHandler do
         :triglavian_invasion_status,
         :sun_type_id
       ])
+      # who holds the system, for null sec - refreshed on a timer, so it rides along with the
+      # static info rather than needing its own round trip
+      |> Map.put(
+        :sovereignty,
+        WandererApp.Server.SovereigntyDataFetcher.get_sovereignty(
+          Map.get(system_static_info, :solar_system_id)
+        )
+      )
 end

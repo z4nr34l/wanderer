@@ -2,6 +2,7 @@ defmodule WandererApp.Esi do
   @moduledoc group: :esi
 
   defdelegate get_server_status, to: WandererApp.Esi.ApiClient
+  defdelegate get_sovereignty_map, to: WandererApp.Esi.ApiClient
   defdelegate get_group_info(group_id, opts \\ []), to: WandererApp.Esi.ApiClient
   defdelegate get_type_info(type_id, opts \\ []), to: WandererApp.Esi.ApiClient
   defdelegate post_universe_ids(names), to: WandererApp.Esi.ApiClient

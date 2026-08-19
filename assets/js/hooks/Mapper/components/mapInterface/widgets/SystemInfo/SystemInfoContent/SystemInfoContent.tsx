@@ -17,7 +17,8 @@ export const SystemInfoContent = ({ systemId }: SystemInfoContentProps) => {
   const sys = getSystemById(systems, systemId)! || {};
   const systemStaticInfo = getSystemStaticInfo(systemId)!;
   const { description } = sys;
-  const { system_class, region_name, constellation_name, statics, effect_name, effect_power } = systemStaticInfo || {};
+  const { system_class, region_name, constellation_name, statics, effect_name, effect_power, sovereignty } =
+    systemStaticInfo || {};
   const isWH = isWormholeSpace(system_class);
   const sortedStatics = useMemo(() => sortWHClasses(wormholesData, statics), [wormholesData, statics]);
 
@@ -26,6 +27,12 @@ export const SystemInfoContent = ({ systemId }: SystemInfoContentProps) => {
       <InfoDrawer title="Constellation & Region">
         {constellation_name} / {region_name}
       </InfoDrawer>
+
+      {sovereignty?.alliance_name && (
+        <InfoDrawer title="Sovereignty">
+          <span className="text-purple-300">{sovereignty.alliance_ticker}</span> {sovereignty.alliance_name}
+        </InfoDrawer>
+      )}
 
       {isWH && (
         <InfoDrawer title="Statics">

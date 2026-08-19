@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { MapSolarSystemType } from '../../map.types';
 import { Handle, NodeProps, Position } from 'reactflow';
 import clsx from 'clsx';
+import { SovereigntyBadge } from '@/hooks/Mapper/components/map/components/SovereigntyBadge';
 import classes from './SolarSystemNodeTheme.module.scss';
 import { PrimeIcons } from 'primereact/api';
 import { useNodeKillsCount, useSolarSystemNode } from '../../hooks';
@@ -128,8 +129,11 @@ export const SolarSystemNodeTheme = memo((props: NodeProps<MapSolarSystemType>) 
               )}
 
               {!nodeVars.isWormhole && !nodeVars.customName && (
-                <div className="[text-shadow:_0_1px_0_rgb(0_0_0_/_40%)] whitespace-nowrap overflow-hidden text-ellipsis mr-0.5">
-                  {nodeVars.regionName}
+                <div className="flex items-center gap-1 min-w-0 mr-0.5">
+                  <SovereigntyBadge sovereignty={nodeVars.sovereignty} />
+                  <div className="[text-shadow:_0_1px_0_rgb(0_0_0_/_40%)] whitespace-nowrap overflow-hidden text-ellipsis">
+                    {nodeVars.regionName}
+                  </div>
                 </div>
               )}
 
