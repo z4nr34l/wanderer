@@ -44,6 +44,23 @@ defmodule WandererApp.Standings do
     |> Enum.sort_by(fn source -> Enum.find_index(@source_order, &(&1 == source)) || 0 end)
   end
 
+  @doc """
+  Adds the character's own alliance, which no contact list carries.
+
+  Nobody sets a standing towards themselves, so without this a pilot sees their own space as
+  neutral - the one alliance they are certain about.
+  """
+  @spec with_own_alliance([map()], String.t() | nil, String.t() | nil) :: [map()]
+  def with_own_alliance(standings, ticker, name) when is_binary(ticker) and ticker != "" do
+    own = %{alliance: ticker, name: name, standing: 10.0}
+
+    others = Enum.reject(standings, &(String.downcase(&1.alliance) == String.downcase(ticker)))
+
+    [own | others] |> Enum.sort_by(& &1.standing)
+  end
+
+  def with_own_alliance(standings, _ticker, _name), do: standings
+
   # the ticker is what shows on the map, so that is what an imported row matches on
   defp standing(%{"contact_id" => contact_id, "standing" => standing}, resolve) do
     case resolve.(contact_id) do

@@ -259,7 +259,7 @@ export const MapRootProvider = ({ children, fwdRef, outCommand }: MapRootProvide
   const userRemoteSettings = useUserRemoteSettings(outCommand);
   const { standings: characterStandings } = useCharacterStandings(
     outCommand,
-    ref.followingCharacterEveId ?? ref.mainCharacterEveId,
+    ref.mainCharacterEveId ?? ref.followingCharacterEveId,
   );
   const undoStack = useUndoStack();
 

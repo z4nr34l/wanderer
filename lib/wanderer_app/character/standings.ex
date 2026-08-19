@@ -43,7 +43,10 @@ defmodule WandererApp.Character.Standings do
       Logger.debug(fn -> "[Standings] no contact list readable for character #{character.id}" end)
     end
 
-    Standings.merge(lists)
+    # own alliance first: a contact list never mentions the alliance you are in
+    lists
+    |> Standings.merge()
+    |> Standings.with_own_alliance(character.alliance_ticker, character.alliance_name)
   end
 
   defp contact_lists(character) do

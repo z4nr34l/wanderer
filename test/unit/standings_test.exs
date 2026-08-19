@@ -58,6 +58,33 @@ defmodule WandererApp.StandingsTest do
     end
   end
 
+  describe "with_own_alliance/3" do
+    test "the character's own alliance is friendly, because no contact list mentions it" do
+      standings = Standings.with_own_alliance([], "CONDI", "Goonswarm Federation")
+
+      assert [%{alliance: "CONDI", name: "Goonswarm Federation", standing: 10.0}] = standings
+    end
+
+    test "it wins over whatever the lists happened to say about it, whatever the case" do
+      read = [%{alliance: "CONDI", name: "Goonswarm Federation", standing: -10.0}]
+
+      assert [%{standing: 10.0}] = Standings.with_own_alliance(read, "condi", nil)
+    end
+
+    test "everyone else is left alone" do
+      read = [%{alliance: "FRT", name: "Fraternity.", standing: -10.0}]
+
+      assert [%{alliance: "FRT", standing: -10.0}, %{alliance: "CONDI", standing: 10.0}] =
+               Standings.with_own_alliance(read, "CONDI", "Goonswarm Federation")
+    end
+
+    test "a character with no alliance changes nothing" do
+      read = [%{alliance: "FRT", name: "Fraternity.", standing: -10.0}]
+
+      assert read == Standings.with_own_alliance(read, nil, nil)
+    end
+  end
+
   describe "sources/1" do
     test "reports what answered, in the order it is applied" do
       read = [{"alliance", []}, {"character", []}, {"alliance", []}]
