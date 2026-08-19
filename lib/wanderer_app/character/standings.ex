@@ -14,6 +14,11 @@ defmodule WandererApp.Character.Standings do
   # contacts change rarely, and switching character should not mean waiting on ESI every time
   @ttl :timer.minutes(30)
 
+  # a read that came back with nothing is usually a token or a role problem rather than an empty
+  # contact list, and holding onto that for half an hour means fixing the token appears to do
+  # nothing
+  @empty_ttl :timer.minutes(1)
+
   @doc """
   The character's standings towards alliances, most hostile first.
 
@@ -29,7 +34,9 @@ defmodule WandererApp.Character.Standings do
 
       _ ->
         standings = read(character)
-        WandererApp.Cache.insert("character:#{id}:standings", standings, ttl: @ttl)
+        ttl = if standings == [], do: @empty_ttl, else: @ttl
+
+        WandererApp.Cache.insert("character:#{id}:standings", standings, ttl: ttl)
         standings
     end
   end
