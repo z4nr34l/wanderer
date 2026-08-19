@@ -216,6 +216,13 @@ defmodule WandererApp.Esi.ApiClient do
         opts |> with_refresh_token()
       )
 
+  @doc """
+  The corporation's contact list. Needs `esi-corporations.read_contacts.v1` and the roles ESI
+  asks for; it answers 403 otherwise.
+  """
+  def get_corporation_contacts(corporation_id, opts \\ []),
+    do: get_corporation_auth_data(corporation_id, "contacts", opts)
+
   def get_corporation_wallets(corporation_id, opts \\ []),
     do: get_corporation_auth_data(corporation_id, "wallets", opts)
 
@@ -240,6 +247,13 @@ defmodule WandererApp.Esi.ApiClient do
 
   def get_character_online(character_eve_id, opts \\ []),
     do: get_character_auth_data(character_eve_id, "online", opts ++ @cache_opts)
+
+  @doc """
+  A character's own contact list. Needs `esi-characters.read_contacts.v1`, and nothing else - a
+  character can always read its own contacts.
+  """
+  def get_character_contacts(character_eve_id, opts \\ []),
+    do: get_character_auth_data(character_eve_id, "contacts", opts)
 
   def get_character_ship(character_eve_id, opts \\ []),
     do: get_character_auth_data(character_eve_id, "ship", opts ++ @cache_opts)

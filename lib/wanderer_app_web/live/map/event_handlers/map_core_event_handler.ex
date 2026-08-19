@@ -293,18 +293,18 @@ defmodule WandererAppWeb.MapCoreEventHandler do
     end
   end
 
-  # Pulls standings off the alliance contact list, so people do not retype what the alliance
-  # already decided. Needs esi-alliances.read_contacts.v1 on the character's token and the
-  # Contact Manager role in the alliance.
+  # Pulls standings off the contact lists the map's tracked characters can read. Which lists those
+  # are depends on scopes and corporation roles, so this asks all of them rather than betting on
+  # one character having the right access.
   def handle_ui_event(
         "import_alliance_standings",
         _params,
-        %{assigns: %{main_character_id: main_character_id}} = socket
+        %{assigns: %{tracked_characters: tracked_characters}} = socket
       )
-      when not is_nil(main_character_id) do
-    case load_alliance_standings(main_character_id) do
-      {:ok, standings} ->
-        {:reply, %{standings: standings}, socket}
+      when tracked_characters != [] do
+    case load_alliance_standings(tracked_characters) do
+      {:ok, %{standings: standings, sources: sources}} ->
+        {:reply, %{standings: standings, sources: sources}, socket}
 
       {:error, reason} ->
         {:reply, %{error: alliance_standings_error(reason)}, socket}
@@ -312,7 +312,7 @@ defmodule WandererAppWeb.MapCoreEventHandler do
   end
 
   def handle_ui_event("import_alliance_standings", _params, socket),
-    do: {:reply, %{error: "No main character set - pick one in tracking settings first."}, socket}
+    do: {:reply, %{error: "No tracked characters on this map - track one first."}, socket}
 
   def handle_ui_event(
         "get_user_settings",
@@ -556,54 +556,86 @@ defmodule WandererAppWeb.MapCoreEventHandler do
 
   defp encode_remote_settings(_settings), do: nil
 
-  defp load_alliance_standings(character_id) do
-    with {:ok,
-          %{eve_id: eve_id, alliance_id: alliance_id, access_token: access_token} = character}
-         when not is_nil(alliance_id) and not is_nil(access_token) <-
-           WandererApp.Character.get_character(character_id),
-         {:ok, contacts} when is_list(contacts) <-
-           WandererApp.Esi.get_alliance_contacts(alliance_id,
-             access_token: access_token,
-             character_id: character.id
-           ) do
-      Logger.debug(fn -> "[Standings] #{eve_id} read #{length(contacts)} alliance contacts" end)
-
-      {:ok,
-       contacts
-       |> Enum.filter(&(&1["contact_type"] == "alliance"))
-       |> Enum.map(&contact_standing/1)}
-    else
-      {:ok, %{alliance_id: nil}} -> {:error, :no_alliance}
-      {:ok, %{access_token: nil}} -> {:error, :no_token}
-      {:error, reason} -> {:error, reason}
-      other -> {:error, other}
+  # Standings can come from three places, and most people can only read one of them: a character
+  # always reads its own contacts, while the corporation and alliance lists need roles ESI
+  # enforces. Everything readable is merged, with the alliance overriding the corporation and the
+  # corporation overriding the character - the group's decision beats the personal one.
+  defp load_alliance_standings(characters) do
+    case Enum.filter(characters, &(not is_nil(&1.access_token))) do
+      [] -> {:error, :no_token}
+      usable -> collect_standings(usable)
     end
   end
 
-  # the ticker is what shows on the map, so that is what an imported row matches on
-  defp contact_standing(%{"contact_id" => contact_id, "standing" => standing}) do
-    case WandererApp.Esi.get_alliance_info(contact_id) do
-      {:ok, %{"ticker" => ticker, "name" => name}} ->
-        %{alliance: ticker, name: name, standing: standing}
+  defp collect_standings(characters) do
+    read =
+      (character_sources(characters) ++
+         corporation_sources(characters) ++ alliance_sources(characters))
+      |> Enum.flat_map(fn {name, fetch} ->
+        case fetch.() do
+          {:ok, contacts} when is_list(contacts) -> [{name, contacts}]
+          _ -> []
+        end
+      end)
 
-      _ ->
-        %{alliance: to_string(contact_id), name: nil, standing: standing}
+    case read do
+      [] ->
+        {:error, :no_contacts}
+
+      read ->
+        {:ok,
+         %{
+           standings: WandererApp.Standings.merge(read),
+           sources: WandererApp.Standings.sources(read)
+         }}
     end
   end
 
-  defp alliance_standings_error(:no_alliance), do: "Your main character is not in an alliance."
+  defp character_sources(characters),
+    do:
+      Enum.map(characters, fn character ->
+        {"character",
+         fn -> WandererApp.Esi.get_character_contacts(character.eve_id, esi_opts(character)) end}
+      end)
+
+  # several characters usually share a corporation or an alliance, and asking once is enough
+  defp corporation_sources(characters),
+    do:
+      characters
+      |> Enum.reject(&is_nil(&1.corporation_id))
+      |> Enum.uniq_by(& &1.corporation_id)
+      |> Enum.map(fn character ->
+        {"corporation",
+         fn ->
+           WandererApp.Esi.get_corporation_contacts(character.corporation_id, esi_opts(character))
+         end}
+      end)
+
+  defp alliance_sources(characters),
+    do:
+      characters
+      |> Enum.reject(&is_nil(&1.alliance_id))
+      |> Enum.uniq_by(& &1.alliance_id)
+      |> Enum.map(fn character ->
+        {"alliance",
+         fn ->
+           WandererApp.Esi.get_alliance_contacts(character.alliance_id, esi_opts(character))
+         end}
+      end)
+
+  defp esi_opts(character), do: [access_token: character.access_token, character_id: character.id]
 
   defp alliance_standings_error(:no_token),
-    do: "That character has no ESI token - re-authenticate it and try again."
+    do: "None of the tracked characters has an ESI token - re-authenticate one and try again."
 
-  defp alliance_standings_error(:forbidden),
+  defp alliance_standings_error(:no_contacts),
     do:
-      "ESI refused the contact list. The character needs the Contact Manager role, and the token needs the alliance contacts scope - re-authenticate to grant it."
+      "ESI would not give up any contact list. Re-authenticate the character so its token carries the contacts scopes; the corporation and alliance lists also need the roles ESI asks for."
 
   defp alliance_standings_error(reason) do
-    Logger.warning("[Standings] alliance contacts failed: #{inspect(reason)}")
+    Logger.warning("[Standings] contacts failed: #{inspect(reason)}")
 
-    "Could not read the alliance contact list."
+    "Could not read any contact list."
   end
 
   defp maybe_start_map(map_id) do

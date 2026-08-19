@@ -117,6 +117,7 @@ export const StandingsSettings = () => {
       }
 
       const imported: ImportedStanding[] = res.standings;
+      const sources: string[] = res.sources ?? [];
 
       // anything typed by hand for an alliance the contact list also covers gives way to it
       const byAlliance = new Map(standings.map(x => [x.alliance.trim().toLowerCase(), x]));
@@ -138,8 +139,10 @@ export const StandingsSettings = () => {
         severity: 'success',
         summary: 'Standings',
         detail: imported.length
-          ? `Took ${imported.length} alliance standings from the contact list.`
-          : 'The alliance contact list has no alliance entries.',
+          ? `Took ${imported.length} alliance standings from the ${sources.join(' and ')} contact list${
+              sources.length > 1 ? 's' : ''
+            }.`
+          : 'Those contact lists have no alliance entries.',
         life: 4000,
       });
     } catch (error) {
@@ -197,9 +200,10 @@ export const StandingsSettings = () => {
       </div>
 
       <span className="text-stone-500 text-[11px] shrink-0">
-        Importing reads your main character&apos;s alliance contact list. It needs the Contact Manager role in the
-        alliance, and a token with the alliance contacts scope - re-authenticate the character if it was added before
-        that scope existed.
+        Importing reads the contact lists of the characters tracked on this map - personal, corporation and alliance.
+        A character can always read its own; the corporation and alliance lists need the roles ESI asks for. Where they
+        disagree the alliance wins, then the corporation. Characters added before these scopes existed need
+        re-authenticating.
       </span>
 
       <Toast ref={toast} />
