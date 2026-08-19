@@ -184,11 +184,33 @@ defmodule WandererAppWeb.Layouts do
     """
   end
 
+  attr :characters, :list, default: []
+
+  @doc """
+  Says a character is short of permissions, from anywhere in the app.
+
+  A stale token keeps working for everything it was granted, so without this the only symptom is
+  a feature quietly doing nothing.
+  """
+  def scopes_warning(assigns) do
+    ~H"""
+    <.link
+      :if={@characters != []}
+      navigate={~p"/characters"}
+      class="tooltip tooltip-right flex justify-center py-2"
+      data-tip={"Reconnect needed: #{Enum.join(@characters, ", ")}"}
+    >
+      <.icon name="hero-exclamation-triangle-solid" class="w-5 h-5 text-amber-500 animate-pulse" />
+    </.link>
+    """
+  end
+
   attr :id, :string
   attr :active_tab, :atom
   attr :show_admin, :boolean
   attr :show_sidebar, :boolean
   attr :map_subscriptions_enabled, :boolean
+  attr :characters_missing_scopes, :list, default: []
 
   def sidebar_nav_links(assigns) do
     ~H"""
@@ -211,6 +233,7 @@ defmodule WandererAppWeb.Layouts do
             <li><a href="/contacts">Contact Us</a></li>
           </ul>
         </div>
+        <.scopes_warning characters={@characters_missing_scopes} />
         <div :if={@show_sidebar}>
           <.nav_link
             href="/last"

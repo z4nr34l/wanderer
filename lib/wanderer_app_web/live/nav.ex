@@ -19,6 +19,9 @@ defmodule WandererAppWeb.Nav do
 
     latest_post = WandererApp.Blog.recent_posts(1) |> List.first()
 
+    # every page can then say a character needs reconnecting, not just the characters list
+    characters_missing_scopes = characters_missing_scopes(socket.assigns[:current_user])
+
     {:cont,
      socket
      |> attach_hook(:active_tab, :handle_params, &set_active_tab/3)
@@ -29,9 +32,18 @@ defmodule WandererAppWeb.Nav do
        show_sidebar: true,
        map_subscriptions_enabled?: WandererApp.Env.map_subscriptions_enabled?(),
        app_version: WandererApp.Env.vsn(),
-       latest_post: latest_post
+       latest_post: latest_post,
+       characters_missing_scopes: characters_missing_scopes
      )}
   end
+
+  defp characters_missing_scopes(%{characters: characters}) when is_list(characters),
+    do:
+      characters
+      |> Enum.filter(&WandererApp.Character.Scopes.stale?/1)
+      |> Enum.map(& &1.name)
+
+  defp characters_missing_scopes(_current_user), do: []
 
   defp handle_event("ping", %{"rtt" => rtt}, socket) do
     {:halt,
