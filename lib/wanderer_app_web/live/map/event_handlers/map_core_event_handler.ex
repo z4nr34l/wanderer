@@ -310,8 +310,8 @@ defmodule WandererAppWeb.MapCoreEventHandler do
 
       {:ok, characters} ->
         case load_alliance_standings(characters) do
-          {:ok, %{standings: standings, sources: sources}} ->
-            {:reply, %{standings: standings, sources: sources}, socket}
+          {:ok, results} ->
+            {:reply, %{results: results}, socket}
 
           {:error, reason} ->
             {:reply, %{error: alliance_standings_error(reason)}, socket}
@@ -575,61 +575,53 @@ defmodule WandererAppWeb.MapCoreEventHandler do
     end
   end
 
+  # Standings are per character, because two characters in different alliances see a different
+  # map: what is blue to one is a target to the other. Each character contributes its own three
+  # lists, merged the same way - alliance over corporation over personal.
   defp collect_standings(characters) do
-    read =
-      (character_sources(characters) ++
-         corporation_sources(characters) ++ alliance_sources(characters))
-      |> Enum.flat_map(fn {name, fetch} ->
-        case fetch.() do
-          {:ok, contacts} when is_list(contacts) -> [{name, contacts}]
-          _ -> []
-        end
+    results =
+      characters
+      |> Enum.map(fn character ->
+        read = character_contact_lists(character)
+
+        %{
+          character_eve_id: to_string(character.eve_id),
+          character_name: character.name,
+          standings: WandererApp.Standings.merge(read),
+          sources: WandererApp.Standings.sources(read)
+        }
       end)
+      |> Enum.reject(&(&1.sources == []))
 
-    case read do
-      [] ->
-        {:error, :no_contacts}
-
-      read ->
-        {:ok,
-         %{
-           standings: WandererApp.Standings.merge(read),
-           sources: WandererApp.Standings.sources(read)
-         }}
+    case results do
+      [] -> {:error, :no_contacts}
+      results -> {:ok, results}
     end
   end
 
-  defp character_sources(characters),
-    do:
-      Enum.map(characters, fn character ->
-        {"character",
-         fn -> WandererApp.Esi.get_character_contacts(character.eve_id, esi_opts(character)) end}
-      end)
+  defp character_contact_lists(character) do
+    opts = esi_opts(character)
 
-  # several characters usually share a corporation or an alliance, and asking once is enough
-  defp corporation_sources(characters),
-    do:
-      characters
-      |> Enum.reject(&is_nil(&1.corporation_id))
-      |> Enum.uniq_by(& &1.corporation_id)
-      |> Enum.map(fn character ->
-        {"corporation",
-         fn ->
-           WandererApp.Esi.get_corporation_contacts(character.corporation_id, esi_opts(character))
-         end}
-      end)
-
-  defp alliance_sources(characters),
-    do:
-      characters
-      |> Enum.reject(&is_nil(&1.alliance_id))
-      |> Enum.uniq_by(& &1.alliance_id)
-      |> Enum.map(fn character ->
-        {"alliance",
-         fn ->
-           WandererApp.Esi.get_alliance_contacts(character.alliance_id, esi_opts(character))
-         end}
-      end)
+    [
+      {"character", fn -> WandererApp.Esi.get_character_contacts(character.eve_id, opts) end},
+      {"corporation",
+       fn ->
+         character.corporation_id &&
+           WandererApp.Esi.get_corporation_contacts(character.corporation_id, opts)
+       end},
+      {"alliance",
+       fn ->
+         character.alliance_id &&
+           WandererApp.Esi.get_alliance_contacts(character.alliance_id, opts)
+       end}
+    ]
+    |> Enum.flat_map(fn {name, fetch} ->
+      case fetch.() do
+        {:ok, contacts} when is_list(contacts) -> [{name, contacts}]
+        _ -> []
+      end
+    end)
+  end
 
   defp esi_opts(character), do: [access_token: character.access_token, character_id: character.id]
 

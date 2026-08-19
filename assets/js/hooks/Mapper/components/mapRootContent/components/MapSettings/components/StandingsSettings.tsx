@@ -7,14 +7,17 @@ import { useMapRootState } from '@/hooks/Mapper/mapRootProvider';
 import { OutCommand } from '@/hooks/Mapper/types';
 import { useMapSettings } from '../MapSettingsProvider';
 import { UserSettingsRemoteProps } from '../types';
+import { Dropdown } from 'primereact/dropdown';
 import {
   AllianceStanding,
   createStandingId,
-  parseAllianceStandings,
+  parseStandingsByCharacter,
+  SHARED_STANDINGS,
   STANDING_BAND_LABELS,
   STANDING_COLORS,
   STANDING_RANGE,
   standingBand,
+  StandingsByCharacter,
 } from '@/hooks/Mapper/constants/standings.ts';
 
 type StandingRowProps = {
@@ -72,20 +75,52 @@ const StandingRow = ({ entry, onChange, onRemove }: StandingRowProps) => {
 
 type ImportedStanding = { alliance: string; name?: string | null; standing: number };
 
+type ImportResult = {
+  character_eve_id: string;
+  character_name: string;
+  standings: ImportedStanding[];
+  sources: string[];
+};
+
 export const StandingsSettings = () => {
   const { settings, updateSetting } = useMapSettings();
-  const { outCommand } = useMapRootState();
+  const {
+    outCommand,
+    data: { characters, userCharacters, followingCharacterEveId, mainCharacterEveId },
+  } = useMapRootState();
   const toast = useRef<Toast | null>(null);
   const [importing, setImporting] = useState(false);
 
-  const standings = useMemo(
-    () => parseAllianceStandings(settings.sovereignty_standings),
+  const byCharacter = useMemo(
+    () => parseStandingsByCharacter(settings.sovereignty_standings),
     [settings.sovereignty_standings],
   );
 
-  const save = useCallback(
-    (next: AllianceStanding[]) => updateSetting(UserSettingsRemoteProps.sovereignty_standings, next),
+  // your own characters, plus a shared bucket for anyone without a list of their own
+  const characterOptions = useMemo(
+    () => [
+      { label: 'All characters', value: SHARED_STANDINGS },
+      ...characters
+        .filter(x => userCharacters.includes(x.eve_id))
+        .map(x => ({ label: x.name, value: x.eve_id })),
+    ],
+    [characters, userCharacters],
+  );
+
+  const [selected, setSelected] = useState<string>(
+    () => followingCharacterEveId ?? mainCharacterEveId ?? SHARED_STANDINGS,
+  );
+
+  const standings = useMemo(() => byCharacter[selected] ?? [], [byCharacter, selected]);
+
+  const saveAll = useCallback(
+    (next: StandingsByCharacter) => updateSetting(UserSettingsRemoteProps.sovereignty_standings, next),
     [updateSetting],
+  );
+
+  const save = useCallback(
+    (next: AllianceStanding[]) => saveAll({ ...byCharacter, [selected]: next }),
+    [byCharacter, saveAll, selected],
   );
 
   const handleChange = useCallback(
@@ -112,38 +147,42 @@ export const StandingsSettings = () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const res: any = await outCommand({ type: OutCommand.importAllianceStandings, data: null });
 
-      if (!res?.standings) {
+      if (!res?.results) {
         throw new Error(res?.error ?? 'Empty response');
       }
 
-      const imported: ImportedStanding[] = res.standings;
-      const sources: string[] = res.sources ?? [];
+      const results: ImportResult[] = res.results;
 
-      // anything typed by hand for an alliance the contact list also covers gives way to it
-      const byAlliance = new Map(standings.map(x => [x.alliance.trim().toLowerCase(), x]));
+      // each character keeps its own list, so a character in another alliance is not overwritten
+      // by one that happens to have been imported last
+      const next: StandingsByCharacter = { ...byCharacter };
 
-      imported.forEach(x => {
-        const key = x.alliance.trim().toLowerCase();
-        const existing = byAlliance.get(key);
+      results.forEach(result => {
+        const existing = new Map((byCharacter[result.character_eve_id] ?? []).map(x => [x.alliance.trim().toLowerCase(), x]));
 
-        byAlliance.set(key, {
-          id: existing?.id ?? createStandingId(),
-          alliance: existing?.alliance ?? x.alliance,
-          standing: x.standing,
+        result.standings.forEach(x => {
+          const key = x.alliance.trim().toLowerCase();
+          const had = existing.get(key);
+
+          existing.set(key, {
+            id: had?.id ?? createStandingId(),
+            alliance: had?.alliance ?? x.alliance,
+            standing: x.standing,
+          });
         });
+
+        next[result.character_eve_id] = [...existing.values()];
       });
 
-      await save([...byAlliance.values()]);
+      await saveAll(next);
 
       toast.current?.show({
         severity: 'success',
         summary: 'Standings',
-        detail: imported.length
-          ? `Took ${imported.length} alliance standings from the ${sources.join(' and ')} contact list${
-              sources.length > 1 ? 's' : ''
-            }.`
+        detail: results.length
+          ? results.map(r => `${r.character_name}: ${r.standings.length} from ${r.sources.join(' and ')}`).join('; ')
           : 'Those contact lists have no alliance entries.',
-        life: 4000,
+        life: 6000,
       });
     } catch (error) {
       toast.current?.show({
@@ -155,13 +194,24 @@ export const StandingsSettings = () => {
     } finally {
       setImporting(false);
     }
-  }, [outCommand, save, standings]);
+  }, [byCharacter, outCommand, saveAll]);
 
   return (
     <div className="w-full h-full min-h-0 flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-1">
       <span className="text-stone-400 text-[12px] shrink-0">
-        Colours the ticker under null sec systems. Ticker or alliance name; -10 danger, -5 warning, +5 friendly.
+        Colours the ticker under null sec systems, as the character you are flying sees it. Ticker or alliance name;
+        -10 danger, -5 warning, +5 friendly.
       </span>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <label className="text-[var(--gray-200)] text-[13px] select-none">Standings for:</label>
+        <Dropdown
+          className="text-sm"
+          value={selected}
+          options={characterOptions}
+          onChange={e => setSelected(e.value)}
+        />
+      </div>
 
       <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 text-stone-500 text-[10px] uppercase tracking-wider shrink-0">
         <span />
@@ -182,7 +232,9 @@ export const StandingsSettings = () => {
       </div>
 
       {standings.length === 0 && (
-        <span className="text-stone-500 text-[12px] shrink-0">No alliances set - every holder shows neutral.</span>
+        <span className="text-stone-500 text-[12px] shrink-0">
+          Nothing set for this character{selected === SHARED_STANDINGS ? '' : ' - it falls back on All characters'}.
+        </span>
       )}
 
       <div className="flex items-center gap-2 shrink-0">

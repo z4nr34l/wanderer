@@ -62,6 +62,38 @@ export const standingBand = (standing: number): StandingBand => {
 
 export const createStandingId = () => Math.random().toString(36).slice(2, 10);
 
+/**
+ * Standings are kept per character: two characters in different alliances look at the same map
+ * and see different space, so switching character has to switch what the map says.
+ *
+ * The shared bucket is what a character without its own list falls back on, and is where the
+ * standings of anyone who set them before this was per character ended up.
+ */
+export const SHARED_STANDINGS = 'shared';
+
+export type StandingsByCharacter = Record<string, AllianceStanding[]>;
+
+export const parseStandingsByCharacter = (value: unknown): StandingsByCharacter => {
+  // a flat list is what this setting used to be, and applied to everyone
+  if (Array.isArray(value)) {
+    return { [SHARED_STANDINGS]: parseAllianceStandings(value) };
+  }
+
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, entries]) => [
+      key,
+      parseAllianceStandings(entries),
+    ]),
+  );
+};
+
+export const standingsFor = (byCharacter: StandingsByCharacter, characterEveId?: string | null): AllianceStanding[] =>
+  (characterEveId ? byCharacter[characterEveId] : undefined) ?? byCharacter[SHARED_STANDINGS] ?? [];
+
 const clamp = (value: number) => Math.min(STANDING_RANGE.max, Math.max(STANDING_RANGE.min, value));
 
 export const parseAllianceStandings = (value: unknown): AllianceStanding[] => {

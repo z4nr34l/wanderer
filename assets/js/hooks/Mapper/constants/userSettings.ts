@@ -42,7 +42,7 @@ export const DEFAULT_REMOTE_SETTINGS = {
   [UserSettingsRemoteProps.connection_bubble_size]: 0,
   [UserSettingsRemoteProps.connection_bubble_border]: 0,
   [UserSettingsRemoteProps.connection_bubble_opacity]: 0,
-  [UserSettingsRemoteProps.sovereignty_standings]: [],
+  [UserSettingsRemoteProps.sovereignty_standings]: {},
 };
 
 export const UserSettingsRemoteList = [

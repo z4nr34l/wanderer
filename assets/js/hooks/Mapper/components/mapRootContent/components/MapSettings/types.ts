@@ -1,7 +1,7 @@
 import { InterfaceStoredSettings } from '@/hooks/Mapper/mapRootProvider/types.ts';
 import { SystemLabelDefinition } from '@/hooks/Mapper/constants/labels.ts';
 import { RollingFit } from '@/hooks/Mapper/constants/rollingFits.ts';
-import { AllianceStanding } from '@/hooks/Mapper/constants/standings.ts';
+import { StandingsByCharacter } from '@/hooks/Mapper/constants/standings.ts';
 
 export { UserSettingsRemoteProps } from '@/hooks/Mapper/constants/userSettings.ts';
 
@@ -24,7 +24,8 @@ export type UserSettingsRemote = {
   connection_bubble_size: number;
   connection_bubble_border: number;
   connection_bubble_opacity: number;
-  sovereignty_standings: AllianceStanding[];
+  // per character, keyed by eve id, with a shared bucket as the fallback
+  sovereignty_standings: StandingsByCharacter;
 };
 
 export type UserSettings = UserSettingsRemote & InterfaceStoredSettings;

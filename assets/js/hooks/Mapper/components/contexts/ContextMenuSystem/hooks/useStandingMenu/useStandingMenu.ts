@@ -10,9 +10,11 @@ import {
   AllianceStanding,
   createStandingId,
   findStanding,
-  parseAllianceStandings,
+  parseStandingsByCharacter,
+  SHARED_STANDINGS,
   StandingBand,
   standingBand,
+  standingsFor,
 } from '@/hooks/Mapper/constants/standings.ts';
 import { UserSettingsRemoteProps } from '@/hooks/Mapper/constants/userSettings.ts';
 
@@ -38,30 +40,42 @@ const BAND_ICON_CLASSES: Record<StandingBand, string> = {
 export const useStandingMenu = (systemId: string | undefined): (() => MenuItem | null) => {
   const {
     outCommand,
+    data: { followingCharacterEveId, mainCharacterEveId },
     userRemoteSettings: { userRemoteSettings, setUserRemoteSettings },
   } = useMapRootState();
 
-  const ref = useRef({ outCommand, userRemoteSettings, setUserRemoteSettings, systemId });
-  ref.current = { outCommand, userRemoteSettings, setUserRemoteSettings, systemId };
+  // the standing goes on the character whose eyes the map is being read through
+  const activeCharacterEveId = followingCharacterEveId ?? mainCharacterEveId ?? SHARED_STANDINGS;
+
+  const ref = useRef({ outCommand, userRemoteSettings, setUserRemoteSettings, systemId, activeCharacterEveId });
+  ref.current = { outCommand, userRemoteSettings, setUserRemoteSettings, systemId, activeCharacterEveId };
 
   const save = useCallback(async (next: AllianceStanding[]) => {
-    const { outCommand, userRemoteSettings, setUserRemoteSettings } = ref.current;
+    const { outCommand, userRemoteSettings, setUserRemoteSettings, activeCharacterEveId } = ref.current;
 
-    const updated = { ...userRemoteSettings, [UserSettingsRemoteProps.sovereignty_standings]: next };
+    const byCharacter = parseStandingsByCharacter(userRemoteSettings.sovereignty_standings);
+
+    const updated = {
+      ...userRemoteSettings,
+      [UserSettingsRemoteProps.sovereignty_standings]: { ...byCharacter, [activeCharacterEveId]: next },
+    };
 
     await outCommand({ type: OutCommand.updateUserSettings, data: updated });
     setUserRemoteSettings(updated);
   }, []);
 
   return useCallback(() => {
-    const { systemId, userRemoteSettings } = ref.current;
+    const { systemId, userRemoteSettings, activeCharacterEveId } = ref.current;
     const sovereignty = systemId ? getSystemStaticInfo(systemId)?.sovereignty : undefined;
 
     if (!sovereignty?.alliance_ticker) {
       return null;
     }
 
-    const standings = parseAllianceStandings(userRemoteSettings.sovereignty_standings);
+    const standings = standingsFor(
+      parseStandingsByCharacter(userRemoteSettings.sovereignty_standings),
+      activeCharacterEveId,
+    );
     const current = findStanding(sovereignty, standings);
 
     // an alliance is one entry: setting a standing replaces whatever it had, ticker or name
