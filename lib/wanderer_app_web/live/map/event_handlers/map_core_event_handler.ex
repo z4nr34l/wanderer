@@ -296,23 +296,31 @@ defmodule WandererAppWeb.MapCoreEventHandler do
   # Pulls standings off the contact lists the map's tracked characters can read. Which lists those
   # are depends on scopes and corporation roles, so this asks all of them rather than betting on
   # one character having the right access.
+  #
+  # Tracking is read here rather than taken from the socket, which only holds what was tracked
+  # when the map was opened - tracking a character and importing without a reload has to work.
   def handle_ui_event(
         "import_alliance_standings",
         _params,
-        %{assigns: %{tracked_characters: tracked_characters}} = socket
-      )
-      when tracked_characters != [] do
-    case load_alliance_standings(tracked_characters) do
-      {:ok, %{standings: standings, sources: sources}} ->
-        {:reply, %{standings: standings, sources: sources}, socket}
+        %{assigns: %{map_id: map_id, current_user: current_user}} = socket
+      ) do
+    case WandererApp.Maps.get_tracked_map_characters(map_id, current_user) do
+      {:ok, []} ->
+        {:reply, %{error: "No tracked characters on this map - track one first."}, socket}
 
-      {:error, reason} ->
-        {:reply, %{error: alliance_standings_error(reason)}, socket}
+      {:ok, characters} ->
+        case load_alliance_standings(characters) do
+          {:ok, %{standings: standings, sources: sources}} ->
+            {:reply, %{standings: standings, sources: sources}, socket}
+
+          {:error, reason} ->
+            {:reply, %{error: alliance_standings_error(reason)}, socket}
+        end
+
+      _ ->
+        {:reply, %{error: "Could not read the characters tracked on this map."}, socket}
     end
   end
-
-  def handle_ui_event("import_alliance_standings", _params, socket),
-    do: {:reply, %{error: "No tracked characters on this map - track one first."}, socket}
 
   def handle_ui_event(
         "get_user_settings",
