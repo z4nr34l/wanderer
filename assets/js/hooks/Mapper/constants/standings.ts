@@ -34,7 +34,7 @@ export const STANDING_BAND_LABELS: Record<StandingBand, string> = {
 export const STANDING_COLORS: Record<StandingBand, string> = {
   [StandingBand.danger]: 'var(--rf-node-sov-danger, #b91c1c)',
   [StandingBand.warning]: 'var(--rf-node-sov-warning, #c2410c)',
-  [StandingBand.neutral]: 'var(--rf-node-sov-neutral, #6d28d9)',
+  [StandingBand.neutral]: 'var(--rf-node-sov-neutral, #52525b)',
   [StandingBand.friendly]: 'var(--rf-node-sov-friendly, #1d4ed8)',
 };
 
