@@ -7,9 +7,13 @@ import { useMapState } from '@/hooks/Mapper/components/map/MapProvider';
 import { useDoubleClick } from '@/hooks/Mapper/hooks/useDoubleClick';
 import { Regions, REGIONS_MAP, SPACE_TO_CLASS } from '@/hooks/Mapper/constants';
 import {
+  findStanding,
   parseAllianceStandings,
   sovereigntyColor as sovereigntyColorOf,
+  StandingBand,
+  standingBand,
 } from '@/hooks/Mapper/constants/standings.ts';
+import { STATUSES } from '@/hooks/Mapper/components/map/constants.ts';
 import { isWormholeSpace } from '@/hooks/Mapper/components/map/helpers/isWormholeSpace';
 import { getSystemClassStyles } from '@/hooks/Mapper/components/map/helpers';
 import { sortWHClasses } from '@/hooks/Mapper/helpers';
@@ -191,11 +195,38 @@ export const useSolarSystemNode = (props: NodeProps<MapSolarSystemType>): SolarS
     [pings, solar_system_id],
   );
 
-  // the ticker takes the colour of whatever standing the user gave that alliance
-  const sovereigntyColor = useMemo(
-    () => sovereigntyColorOf(sovereignty, parseAllianceStandings(userRemoteSettings.sovereignty_standings)),
-    [sovereignty, userRemoteSettings.sovereignty_standings],
+  const standings = useMemo(
+    () => parseAllianceStandings(userRemoteSettings.sovereignty_standings),
+    [userRemoteSettings.sovereignty_standings],
   );
+
+  // the ticker takes the colour of whatever standing the user gave that alliance
+  const sovereigntyColor = useMemo(() => sovereigntyColorOf(sovereignty, standings), [sovereignty, standings]);
+
+  // A system nobody has marked takes its state from whoever holds it, so friendly space reads as
+  // friendly without tagging every system by hand. Anything set by hand wins.
+  const displayStatus = useMemo(() => {
+    if (status !== STATUSES.unknown) {
+      return status;
+    }
+
+    const standing = findStanding(sovereignty, standings);
+
+    if (standing === undefined) {
+      return status;
+    }
+
+    switch (standingBand(standing)) {
+      case StandingBand.friendly:
+        return STATUSES.friendly;
+      case StandingBand.warning:
+        return STATUSES.warning;
+      case StandingBand.danger:
+        return STATUSES.dangerous;
+      default:
+        return status;
+    }
+  }, [sovereignty, standings, status]);
 
   const regionName = useMemo(() => {
     if (region_id === Regions.Pochven) {
@@ -220,7 +251,7 @@ export const useSolarSystemNode = (props: NodeProps<MapSolarSystemType>): SolarS
     labelCustom,
     isShattered: is_shattered,
     tag,
-    status,
+    status: displayStatus,
     labelsInfo,
     dbClick,
     sortedStatics,
