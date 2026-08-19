@@ -17,16 +17,13 @@ import { useMapRootState } from '@/hooks/Mapper/mapRootProvider';
 import { WithChildren } from '@/hooks/Mapper/types/common.ts';
 import { FormatTemplateInput } from '@/hooks/Mapper/components/mapRootContent/components/MapSettings/components/FormatTemplateInput.tsx';
 import { SystemLabelDefinition } from '@/hooks/Mapper/constants/labels.ts';
-import { AllianceStanding, StandingsByCharacter } from '@/hooks/Mapper/constants/standings.ts';
 
 export type SettingValue =
   | boolean
   | number
   | string
   | Record<string, string>
-  | SystemLabelDefinition[]
-  | AllianceStanding[]
-  | StandingsByCharacter;
+  | SystemLabelDefinition[];
 
 type MapSettingsContextType = {
   renderSettingItem: (item: SettingsListItem) => ReactNode;

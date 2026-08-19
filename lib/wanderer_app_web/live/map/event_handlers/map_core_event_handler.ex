@@ -293,34 +293,24 @@ defmodule WandererAppWeb.MapCoreEventHandler do
     end
   end
 
-  # Pulls standings off the contact lists the map's tracked characters can read. Which lists those
-  # are depends on scopes and corporation roles, so this asks all of them rather than betting on
-  # one character having the right access.
-  #
-  # Tracking is read here rather than taken from the socket, which only holds what was tracked
-  # when the map was opened - tracking a character and importing without a reload has to work.
+  # Standings are read from EVE for the character being flown, never stored and never edited -
+  # there is nothing to disagree with, and switching character switches the picture.
   def handle_ui_event(
-        "import_alliance_standings",
-        _params,
+        "get_character_standings",
+        %{"character_eve_id" => character_eve_id},
         %{assigns: %{map_id: map_id, current_user: current_user}} = socket
-      ) do
-    case WandererApp.Maps.get_tracked_map_characters(map_id, current_user) do
-      {:ok, []} ->
-        {:reply, %{error: "No tracked characters on this map - track one first."}, socket}
-
-      {:ok, characters} ->
-        case load_alliance_standings(characters) do
-          {:ok, results} ->
-            {:reply, %{results: results}, socket}
-
-          {:error, reason} ->
-            {:reply, %{error: alliance_standings_error(reason)}, socket}
-        end
-
-      _ ->
-        {:reply, %{error: "Could not read the characters tracked on this map."}, socket}
+      )
+      when is_binary(character_eve_id) do
+    with {:ok, characters} <- WandererApp.Maps.get_tracked_map_characters(map_id, current_user),
+         %{} = character <- Enum.find(characters, &(to_string(&1.eve_id) == character_eve_id)) do
+      {:reply, %{standings: WandererApp.Character.Standings.for_character(character)}, socket}
+    else
+      _ -> {:reply, %{standings: []}, socket}
     end
   end
+
+  def handle_ui_event("get_character_standings", _params, socket),
+    do: {:reply, %{standings: []}, socket}
 
   def handle_ui_event(
         "get_user_settings",
@@ -393,8 +383,7 @@ defmodule WandererAppWeb.MapCoreEventHandler do
         "connection_bubble_color",
         "connection_bubble_size",
         "connection_bubble_border",
-        "connection_bubble_opacity",
-        "sovereignty_standings"
+        "connection_bubble_opacity"
       ])
       |> Jason.encode!()
 
@@ -568,76 +557,6 @@ defmodule WandererAppWeb.MapCoreEventHandler do
   # always reads its own contacts, while the corporation and alliance lists need roles ESI
   # enforces. Everything readable is merged, with the alliance overriding the corporation and the
   # corporation overriding the character - the group's decision beats the personal one.
-  defp load_alliance_standings(characters) do
-    case Enum.filter(characters, &(not is_nil(&1.access_token))) do
-      [] -> {:error, :no_token}
-      usable -> collect_standings(usable)
-    end
-  end
-
-  # Standings are per character, because two characters in different alliances see a different
-  # map: what is blue to one is a target to the other. Each character contributes its own three
-  # lists, merged the same way - alliance over corporation over personal.
-  defp collect_standings(characters) do
-    results =
-      characters
-      |> Enum.map(fn character ->
-        read = character_contact_lists(character)
-
-        %{
-          character_eve_id: to_string(character.eve_id),
-          character_name: character.name,
-          standings: WandererApp.Standings.merge(read),
-          sources: WandererApp.Standings.sources(read)
-        }
-      end)
-      |> Enum.reject(&(&1.sources == []))
-
-    case results do
-      [] -> {:error, :no_contacts}
-      results -> {:ok, results}
-    end
-  end
-
-  defp character_contact_lists(character) do
-    opts = esi_opts(character)
-
-    [
-      {"character", fn -> WandererApp.Esi.get_character_contacts(character.eve_id, opts) end},
-      {"corporation",
-       fn ->
-         character.corporation_id &&
-           WandererApp.Esi.get_corporation_contacts(character.corporation_id, opts)
-       end},
-      {"alliance",
-       fn ->
-         character.alliance_id &&
-           WandererApp.Esi.get_alliance_contacts(character.alliance_id, opts)
-       end}
-    ]
-    |> Enum.flat_map(fn {name, fetch} ->
-      case fetch.() do
-        {:ok, contacts} when is_list(contacts) -> [{name, contacts}]
-        _ -> []
-      end
-    end)
-  end
-
-  defp esi_opts(character), do: [access_token: character.access_token, character_id: character.id]
-
-  defp alliance_standings_error(:no_token),
-    do: "None of the tracked characters has an ESI token - re-authenticate one and try again."
-
-  defp alliance_standings_error(:no_contacts),
-    do:
-      "ESI would not give up any contact list. Re-authenticate the character so its token carries the contacts scopes; the corporation and alliance lists also need the roles ESI asks for."
-
-  defp alliance_standings_error(reason) do
-    Logger.warning("[Standings] contacts failed: #{inspect(reason)}")
-
-    "Could not read any contact list."
-  end
-
   defp maybe_start_map(map_id) do
     {:ok, map_server_started} = WandererApp.Cache.lookup("map_#{map_id}:started", false)
 

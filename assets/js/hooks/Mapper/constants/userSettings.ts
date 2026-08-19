@@ -19,7 +19,6 @@ export enum UserSettingsRemoteProps {
   connection_bubble_size = 'connection_bubble_size',
   connection_bubble_border = 'connection_bubble_border',
   connection_bubble_opacity = 'connection_bubble_opacity',
-  sovereignty_standings = 'sovereignty_standings',
 }
 
 export const DEFAULT_REMOTE_SETTINGS = {
@@ -42,7 +41,6 @@ export const DEFAULT_REMOTE_SETTINGS = {
   [UserSettingsRemoteProps.connection_bubble_size]: 0,
   [UserSettingsRemoteProps.connection_bubble_border]: 0,
   [UserSettingsRemoteProps.connection_bubble_opacity]: 0,
-  [UserSettingsRemoteProps.sovereignty_standings]: {},
 };
 
 export const UserSettingsRemoteList = [
@@ -63,5 +61,4 @@ export const UserSettingsRemoteList = [
   UserSettingsRemoteProps.connection_bubble_size,
   UserSettingsRemoteProps.connection_bubble_border,
   UserSettingsRemoteProps.connection_bubble_opacity,
-  UserSettingsRemoteProps.sovereignty_standings,
 ];

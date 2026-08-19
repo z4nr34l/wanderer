@@ -18,7 +18,6 @@ import { WidgetsSettings } from './components/WidgetsSettings';
 import { CommonSettings } from './components/CommonSettings';
 import { BookmarksSettings } from './components/BookmarksSettings';
 import { LabelsSettings } from './components/LabelsSettings';
-import { StandingsSettings } from './components/StandingsSettings';
 import { SettingsListItem } from './types.ts';
 import { ImportExport } from './components/ImportExport.tsx';
 import { ServerSettings } from './components/ServerSettings.tsx';
@@ -92,10 +91,6 @@ export const MapSettingsComp = ({ visible, onHide }: MapSettingsProps) => {
 
             <TabPanel header="Labels" className="h-full" headerClassName={styles.verticalTabHeader}>
               <LabelsSettings />
-            </TabPanel>
-
-            <TabPanel header="Standings" className="h-full" headerClassName={styles.verticalTabHeader}>
-              <StandingsSettings />
             </TabPanel>
 
             <TabPanel header="Connections" headerClassName={styles.verticalTabHeader}>

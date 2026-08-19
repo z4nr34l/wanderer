@@ -1,6 +1,5 @@
 import {
   useLabelsMenu,
-  useStandingMenu,
   useStatusMenu,
   useTagMenu,
   useUserRoute,
@@ -42,7 +41,6 @@ export const useContextMenuSystemItems = ({
 }: Omit<ContextMenuSystemProps, 'contextMenuRef'>) => {
   const getTags = useTagMenu(systems, systemId, onSystemTag);
   const getStatus = useStatusMenu(systems, systemId, onSystemStatus);
-  const getStanding = useStandingMenu(systemId);
   const getLabels = useLabelsMenu(systems, systemId, onSystemLabels, onCustomLabelDialog);
   const getWaypointMenu = useWaypointMenu(onWaypointSet);
   const canLockSystem = useMapCheckPermissions([UserPermission.LOCK_SYSTEM]);
@@ -52,11 +50,7 @@ export const useContextMenuSystemItems = ({
 
   const {
     data: { pings, isSubscriptionActive },
-    userRemoteSettings: { userRemoteSettings },
   } = useMapRootState();
-
-  // rebuild the menu when standings change, so the active mark is right the next time it opens
-  const standings = userRemoteSettings.sovereignty_standings;
 
   const ping = useMemo(() => (pings.length === 1 ? pings[0] : undefined), [pings]);
   const isShowPingBtn = useMemo(() => {
@@ -100,8 +94,6 @@ export const useContextMenuSystemItems = ({
       { separator: true },
       getTags(),
       getStatus(),
-      // only for systems that have a sovereignty holder to rate
-      ...[getStanding()].filter((x): x is MenuItem => x != null),
       ...getLabels(),
       ...getWaypointMenu(systemId, systemStaticInfo.system_class),
       {
@@ -195,8 +187,6 @@ export const useContextMenuSystemItems = ({
     systems,
     getTags,
     getStatus,
-    getStanding,
-    standings,
     getLabels,
     getWaypointMenu,
     getUserRoutes,

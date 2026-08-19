@@ -44,6 +44,8 @@ import {
   UseUserRemoteSettingsData,
   useUserRemoteSettings,
 } from '@/hooks/Mapper/mapRootProvider/hooks/useUserRemoteSettings.ts';
+import { useCharacterStandings } from '@/hooks/Mapper/mapRootProvider/hooks/useCharacterStandings.ts';
+import { AllianceStanding } from '@/hooks/Mapper/constants/standings.ts';
 import { UseUndoStackData, useUndoStack } from '@/hooks/Mapper/mapRootProvider/hooks/useUndoStack.ts';
 import { DEFAULT_REMOTE_SETTINGS } from '@/hooks/Mapper/constants/userSettings.ts';
 import { getDefaultSystemLabels } from '@/hooks/Mapper/constants/labels.ts';
@@ -134,6 +136,8 @@ export interface MapRootContextProps {
   comments: UseCommentsData;
   charactersCache: UseCharactersCacheData;
   userRemoteSettings: UseUserRemoteSettingsData;
+  // read from EVE for the character being flown, not stored
+  characterStandings: AllianceStanding[];
   undoStack: UseUndoStackData;
 
   /**
@@ -190,6 +194,7 @@ const MapRootContext = createContext<MapRootContextProps>({
     characters: new Map(),
     lastUpdateKey: 0,
   },
+  characterStandings: [],
   userRemoteSettings: {
     userRemoteSettings: { ...DEFAULT_REMOTE_SETTINGS },
     setUserRemoteSettings: () => null,
@@ -252,6 +257,10 @@ export const MapRootProvider = ({ children, fwdRef, outCommand }: MapRootProvide
   const comments = useComments({ outCommand });
   const charactersCache = useCharactersCache({ outCommand });
   const userRemoteSettings = useUserRemoteSettings(outCommand);
+  const { standings: characterStandings } = useCharacterStandings(
+    outCommand,
+    ref.followingCharacterEveId ?? ref.mainCharacterEveId,
+  );
   const undoStack = useUndoStack();
 
   return (
@@ -267,6 +276,7 @@ export const MapRootProvider = ({ children, fwdRef, outCommand }: MapRootProvide
         comments,
         charactersCache,
         userRemoteSettings,
+        characterStandings,
         undoStack,
         storedSettings,
       }}

@@ -8,11 +8,9 @@ import { useDoubleClick } from '@/hooks/Mapper/hooks/useDoubleClick';
 import { Regions, REGIONS_MAP, SPACE_TO_CLASS } from '@/hooks/Mapper/constants';
 import {
   findStanding,
-  parseStandingsByCharacter,
   sovereigntyColor as sovereigntyColorOf,
   StandingBand,
   standingBand,
-  standingsFor,
 } from '@/hooks/Mapper/constants/standings.ts';
 import { STATUSES } from '@/hooks/Mapper/components/map/constants.ts';
 import { isWormholeSpace } from '@/hooks/Mapper/components/map/helpers/isWormholeSpace';
@@ -93,8 +91,8 @@ export const useSolarSystemNode = (props: NodeProps<MapSolarSystemType>): SolarS
 
   const {
     storedSettings: { interfaceSettings },
-    data: { systemSignatures: mapSystemSignatures, pings, followingCharacterEveId, mainCharacterEveId },
-    userRemoteSettings: { userRemoteSettings },
+    data: { systemSignatures: mapSystemSignatures, pings },
+    characterStandings: standings,
   } = useMapRootState();
 
   const systemStaticInfo = useMemo(() => {
@@ -194,14 +192,6 @@ export const useSolarSystemNode = (props: NodeProps<MapSolarSystemType>): SolarS
   const isRally = useMemo(
     () => !!pings.find(x => x.solar_system_id === solar_system_id && x.type === PingType.Rally),
     [pings, solar_system_id],
-  );
-
-  // whichever character you are following, or your main - the map reads as that character sees it
-  const activeCharacterEveId = followingCharacterEveId ?? mainCharacterEveId;
-
-  const standings = useMemo(
-    () => standingsFor(parseStandingsByCharacter(userRemoteSettings.sovereignty_standings), activeCharacterEveId),
-    [activeCharacterEveId, userRemoteSettings.sovereignty_standings],
   );
 
   // the ticker takes the colour of whatever standing the user gave that alliance
