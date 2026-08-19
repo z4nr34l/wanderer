@@ -160,9 +160,7 @@ export const StandingsSettings = () => {
   return (
     <div className="w-full h-full min-h-0 flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-1">
       <span className="text-stone-400 text-[12px] shrink-0">
-        Colours the sovereignty ticker under null sec systems. Match on the ticker or the full alliance name -
-        &quot;FRT&quot; and &quot;Fraternity.&quot; both work. Standings follow the overview: -10 and below is danger,
-        -5 and below is warning, +5 and above is friendly. Anything not listed stays neutral.
+        Colours the ticker under null sec systems. Ticker or alliance name; -10 danger, -5 warning, +5 friendly.
       </span>
 
       <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 text-stone-500 text-[10px] uppercase tracking-wider shrink-0">
@@ -193,18 +191,12 @@ export const StandingsSettings = () => {
           size="small"
           outlined
           icon="pi pi-cloud-download"
-          label="Import from alliance"
+          label="Import from EVE"
+          tooltip="Reads the contact lists of your tracked characters"
           disabled={importing}
           onClick={handleImport}
         />
       </div>
-
-      <span className="text-stone-500 text-[11px] shrink-0">
-        Importing reads the contact lists of the characters tracked on this map - personal, corporation and alliance.
-        A character can always read its own; the corporation and alliance lists need the roles ESI asks for. Where they
-        disagree the alliance wins, then the corporation. Characters added before these scopes existed need
-        re-authenticating.
-      </span>
 
       <Toast ref={toast} />
     </div>

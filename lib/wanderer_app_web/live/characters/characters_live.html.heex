@@ -207,7 +207,7 @@
             <.link
               patch={~p"/characters/authorize"}
               class="tooltip tooltip-bottom"
-              data-tip="Refresh Authorization"
+              data-tip="Reconnect - sign in again to re-grant access"
             >
               <.icon name="hero-arrow-path-solid" class="w-4 h-4 hover:text-white " />
             </.link>
@@ -270,6 +270,33 @@
           |> Number.to_human(units: ["", "K", "M", "B", "T", "P"])}
         </span>
       </:col>
+      <:col :let={character} label="">
+        <div class="flex items-center gap-3 justify-end">
+          <.link
+            navigate={~p"/characters/#{character.eve_id}"}
+            class="tooltip tooltip-left"
+            data-tip="View Profile"
+          >
+            <.icon name="hero-user-solid" class="w-4 h-4 hover:text-white" />
+          </.link>
+          <.link
+            patch={~p"/characters/authorize"}
+            class="tooltip tooltip-left"
+            data-tip="Reconnect - sign in again to re-grant access"
+          >
+            <.icon name="hero-arrow-path-solid" class="w-4 h-4 hover:text-white" />
+          </.link>
+          <button
+            class="tooltip tooltip-left"
+            phx-click="delete"
+            phx-value-character_id={character.id}
+            data={[confirm: "Please confirm to delete character!"]}
+            data-tip="Delete Character"
+          >
+            <.icon name="hero-trash-solid" class="w-4 h-4 hover:text-white" />
+          </button>
+        </div>
+      </:col>
     </.table>
   </div>
 
@@ -290,6 +317,10 @@
             label="Access to character wallet information"
           />
         </div>
+        <p class="text-xs text-stone-400 pb-2">
+          Signing in with a character that is already here refreshes its access instead of adding it twice - use this
+          when a character needs to grant something new.
+        </p>
         <div class="modal-action mt-0">
           <.button type="submit">AUTHORIZE</.button>
         </div>
