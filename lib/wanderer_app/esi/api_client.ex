@@ -202,6 +202,20 @@ defmodule WandererApp.Esi.ApiClient do
   def get_character_wallet(character_eve_id, opts \\ []),
     do: get_character_auth_data(character_eve_id, "wallet", opts ++ @cache_opts)
 
+  @doc """
+  The alliance's contact list, which is where its standings live.
+
+  Needs `esi-alliances.read_contacts.v1` and a character holding the Contact Manager role in the
+  alliance; ESI answers 403 otherwise.
+  """
+  def get_alliance_contacts(alliance_id, opts \\ []),
+    do:
+      do_get(
+        "/alliances/#{alliance_id}/contacts/",
+        [params: opts[:params] || []] ++ (opts |> get_auth_opts()),
+        opts |> with_refresh_token()
+      )
+
   def get_corporation_wallets(corporation_id, opts \\ []),
     do: get_corporation_auth_data(corporation_id, "wallets", opts)
 

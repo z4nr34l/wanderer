@@ -302,6 +302,7 @@ export enum OutCommand {
   exportMapData = 'export_map_data',
   importMapData = 'import_map_data',
   updateUserSettings = 'update_user_settings',
+  importAllianceStandings = 'import_alliance_standings',
   updateMapSystemLabels = 'update_map_system_labels',
   saveDefaultSettings = 'save_default_settings',
   getDefaultSettings = 'get_default_settings',

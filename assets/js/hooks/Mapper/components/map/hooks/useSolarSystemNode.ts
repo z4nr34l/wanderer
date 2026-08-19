@@ -6,6 +6,10 @@ import { useMapGetOption } from '@/hooks/Mapper/mapRootProvider/hooks/api';
 import { useMapState } from '@/hooks/Mapper/components/map/MapProvider';
 import { useDoubleClick } from '@/hooks/Mapper/hooks/useDoubleClick';
 import { Regions, REGIONS_MAP, SPACE_TO_CLASS } from '@/hooks/Mapper/constants';
+import {
+  parseAllianceStandings,
+  sovereigntyColor as sovereigntyColorOf,
+} from '@/hooks/Mapper/constants/standings.ts';
 import { isWormholeSpace } from '@/hooks/Mapper/components/map/helpers/isWormholeSpace';
 import { getSystemClassStyles } from '@/hooks/Mapper/components/map/helpers';
 import { sortWHClasses } from '@/hooks/Mapper/helpers';
@@ -43,6 +47,7 @@ export interface SolarSystemNodeVars {
   effectName: string | null;
   regionName: string | null;
   sovereignty?: SovereigntyInfo | null;
+  sovereigntyColor: string;
   solarSystemId: string;
   solarSystemName: string | null;
   locked: boolean;
@@ -84,6 +89,7 @@ export const useSolarSystemNode = (props: NodeProps<MapSolarSystemType>): SolarS
   const {
     storedSettings: { interfaceSettings },
     data: { systemSignatures: mapSystemSignatures, pings },
+    userRemoteSettings: { userRemoteSettings },
   } = useMapRootState();
 
   const systemStaticInfo = useMemo(() => {
@@ -185,6 +191,12 @@ export const useSolarSystemNode = (props: NodeProps<MapSolarSystemType>): SolarS
     [pings, solar_system_id],
   );
 
+  // the ticker takes the colour of whatever standing the user gave that alliance
+  const sovereigntyColor = useMemo(
+    () => sovereigntyColorOf(sovereignty, parseAllianceStandings(userRemoteSettings.sovereignty_standings)),
+    [sovereignty, userRemoteSettings.sovereignty_standings],
+  );
+
   const regionName = useMemo(() => {
     if (region_id === Regions.Pochven) {
       return constellation_name;
@@ -229,6 +241,7 @@ export const useSolarSystemNode = (props: NodeProps<MapSolarSystemType>): SolarS
     temporaryName: computedTemporaryName,
     regionName,
     sovereignty,
+    sovereigntyColor,
     solarSystemName: solar_system_name,
     isRally,
     description,

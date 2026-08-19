@@ -129,11 +129,8 @@ export const SolarSystemNodeTheme = memo((props: NodeProps<MapSolarSystemType>) 
               )}
 
               {!nodeVars.isWormhole && !nodeVars.customName && (
-                <div className="flex items-center gap-1 min-w-0 mr-0.5">
-                  <SovereigntyBadge sovereignty={nodeVars.sovereignty} />
-                  <div className="[text-shadow:_0_1px_0_rgb(0_0_0_/_40%)] whitespace-nowrap overflow-hidden text-ellipsis">
-                    {nodeVars.regionName}
-                  </div>
+                <div className="[text-shadow:_0_1px_0_rgb(0_0_0_/_40%)] whitespace-nowrap overflow-hidden text-ellipsis mr-0.5">
+                  {nodeVars.regionName}
                 </div>
               )}
 
@@ -237,6 +234,16 @@ export const SolarSystemNodeTheme = memo((props: NodeProps<MapSolarSystemType>) 
           id="d"
         />
       </div>
+
+      {nodeVars.visible && nodeVars.sovereignty && (
+        <div className={clsx(classes.Bookmarks, classes.Bottom)}>
+          <SovereigntyBadge
+            sovereignty={nodeVars.sovereignty}
+            color={nodeVars.sovereigntyColor}
+            className={classes.Bookmark}
+          />
+        </div>
+      )}
     </>
   );
 });

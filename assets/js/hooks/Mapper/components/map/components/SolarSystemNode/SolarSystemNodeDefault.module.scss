@@ -174,6 +174,23 @@
   display: flex;
   left: var(--rf-node-bookmarks-left, 4px);
 
+  // the same chips, hung under the card instead of over it - sovereignty reads as a property of
+  // the system rather than something someone tagged it with
+  &.Bottom {
+    top: 100%;
+    // hung off the bottom right corner, clear of the labels that sit top left
+    left: 0;
+    justify-content: flex-end;
+    padding-right: var(--rf-node-bookmarks-right, 4px);
+
+    & > .Bookmark {
+      top: var(--rf-node-bookmark-bottom-top, -9px);
+      // the chip is tucked under the card by the same amount the label chips are tucked over it,
+      // so the text has to sit in the half that shows
+      padding-top: var(--rf-node-bookmark-bottom-padding-top, 11px);
+    }
+  }
+
   & > .Bookmark {
     min-width: var(--rf-node-bookmark-min-width, 13px);
     height: var(--rf-node-bookmark-height, 22px);

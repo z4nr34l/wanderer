@@ -293,6 +293,27 @@ defmodule WandererAppWeb.MapCoreEventHandler do
     end
   end
 
+  # Pulls standings off the alliance contact list, so people do not retype what the alliance
+  # already decided. Needs esi-alliances.read_contacts.v1 on the character's token and the
+  # Contact Manager role in the alliance.
+  def handle_ui_event(
+        "import_alliance_standings",
+        _params,
+        %{assigns: %{main_character_id: main_character_id}} = socket
+      )
+      when not is_nil(main_character_id) do
+    case load_alliance_standings(main_character_id) do
+      {:ok, standings} ->
+        {:reply, %{standings: standings}, socket}
+
+      {:error, reason} ->
+        {:reply, %{error: alliance_standings_error(reason)}, socket}
+    end
+  end
+
+  def handle_ui_event("import_alliance_standings", _params, socket),
+    do: {:reply, %{error: "No main character set - pick one in tracking settings first."}, socket}
+
   def handle_ui_event(
         "get_user_settings",
         _,
@@ -306,8 +327,7 @@ defmodule WandererAppWeb.MapCoreEventHandler do
     with {:ok, user_settings} <-
            WandererApp.MapUserSettingsRepo.to_form_data(map_user_settings),
          {:ok, system_labels} <- WandererApp.MapRepo.get_system_labels(map_id) do
-      {:reply,
-       %{user_settings: Map.put(user_settings, "system_labels", system_labels)}, socket}
+      {:reply, %{user_settings: Map.put(user_settings, "system_labels", system_labels)}, socket}
     else
       error ->
         Logger.error("Failed to load map settings: #{inspect(error)}")
@@ -365,7 +385,8 @@ defmodule WandererAppWeb.MapCoreEventHandler do
         "connection_bubble_color",
         "connection_bubble_size",
         "connection_bubble_border",
-        "connection_bubble_opacity"
+        "connection_bubble_opacity",
+        "sovereignty_standings"
       ])
       |> Jason.encode!()
 
@@ -405,7 +426,12 @@ defmodule WandererAppWeb.MapCoreEventHandler do
       ) do
     # Check if user is map admin
     if user_permissions.admin_map do
-      case save_default_settings(map_id, settings, Map.get(params, "remote_settings"), current_user) do
+      case save_default_settings(
+             map_id,
+             settings,
+             Map.get(params, "remote_settings"),
+             current_user
+           ) do
         {:ok, _default_settings} ->
           {:reply, %{success: true}, socket}
 
@@ -514,16 +540,71 @@ defmodule WandererAppWeb.MapCoreEventHandler do
   end
 
   defp encode_remote_settings(nil), do: nil
+
   defp encode_remote_settings(settings) when is_binary(settings) do
     case Jason.decode(settings) do
-      {:ok, decoded} when is_map(decoded) -> decoded |> Map.delete("system_labels") |> Jason.encode!()
-      _ -> nil
+      {:ok, decoded} when is_map(decoded) ->
+        decoded |> Map.delete("system_labels") |> Jason.encode!()
+
+      _ ->
+        nil
     end
   end
 
   defp encode_remote_settings(settings) when is_map(settings),
     do: settings |> Map.delete("system_labels") |> Jason.encode!()
+
   defp encode_remote_settings(_settings), do: nil
+
+  defp load_alliance_standings(character_id) do
+    with {:ok,
+          %{eve_id: eve_id, alliance_id: alliance_id, access_token: access_token} = character}
+         when not is_nil(alliance_id) and not is_nil(access_token) <-
+           WandererApp.Character.get_character(character_id),
+         {:ok, contacts} when is_list(contacts) <-
+           WandererApp.Esi.get_alliance_contacts(alliance_id,
+             access_token: access_token,
+             character_id: character.id
+           ) do
+      Logger.debug(fn -> "[Standings] #{eve_id} read #{length(contacts)} alliance contacts" end)
+
+      {:ok,
+       contacts
+       |> Enum.filter(&(&1["contact_type"] == "alliance"))
+       |> Enum.map(&contact_standing/1)}
+    else
+      {:ok, %{alliance_id: nil}} -> {:error, :no_alliance}
+      {:ok, %{access_token: nil}} -> {:error, :no_token}
+      {:error, reason} -> {:error, reason}
+      other -> {:error, other}
+    end
+  end
+
+  # the ticker is what shows on the map, so that is what an imported row matches on
+  defp contact_standing(%{"contact_id" => contact_id, "standing" => standing}) do
+    case WandererApp.Esi.get_alliance_info(contact_id) do
+      {:ok, %{"ticker" => ticker, "name" => name}} ->
+        %{alliance: ticker, name: name, standing: standing}
+
+      _ ->
+        %{alliance: to_string(contact_id), name: nil, standing: standing}
+    end
+  end
+
+  defp alliance_standings_error(:no_alliance), do: "Your main character is not in an alliance."
+
+  defp alliance_standings_error(:no_token),
+    do: "That character has no ESI token - re-authenticate it and try again."
+
+  defp alliance_standings_error(:forbidden),
+    do:
+      "ESI refused the contact list. The character needs the Contact Manager role, and the token needs the alliance contacts scope - re-authenticate to grant it."
+
+  defp alliance_standings_error(reason) do
+    Logger.warning("[Standings] alliance contacts failed: #{inspect(reason)}")
+
+    "Could not read the alliance contact list."
+  end
 
   defp maybe_start_map(map_id) do
     {:ok, map_server_started} = WandererApp.Cache.lookup("map_#{map_id}:started", false)

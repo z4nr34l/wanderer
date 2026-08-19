@@ -7,6 +7,7 @@ defmodule WandererApp.Esi do
   defdelegate get_type_info(type_id, opts \\ []), to: WandererApp.Esi.ApiClient
   defdelegate post_universe_ids(names), to: WandererApp.Esi.ApiClient
   defdelegate get_alliance_info(eve_id, opts \\ []), to: WandererApp.Esi.ApiClient
+  defdelegate get_alliance_contacts(alliance_id, opts \\ []), to: WandererApp.Esi.ApiClient
   defdelegate get_corporation_info(eve_id, opts \\ []), to: WandererApp.Esi.ApiClient
   defdelegate get_character_info(eve_id, opts \\ []), to: WandererApp.Esi.ApiClient
 
