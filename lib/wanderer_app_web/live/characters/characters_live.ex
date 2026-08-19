@@ -211,6 +211,9 @@ defmodule WandererAppWeb.CharactersLive do
     |> Map.put_new(:ship, WandererApp.Character.get_ship(character))
     |> Map.put_new(:location, WandererApp.Character.get_location(character))
     |> Map.put_new(:invalid_token, is_nil(character.access_token))
+    # what this character never granted of what the server asks for now, so the page can say to
+    # reconnect it rather than leaving people to work out why a feature does nothing
+    |> Map.put_new(:missing_scopes, WandererApp.Character.Scopes.missing(character))
   end
 
   defp maybe_add_wallet_balance(map, character, true) do

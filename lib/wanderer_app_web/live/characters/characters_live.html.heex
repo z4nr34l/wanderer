@@ -96,6 +96,20 @@
     </div>
   </div>
   <div
+    :if={@characters |> Enum.any?(&(&1.missing_scopes != []))}
+    role="alert"
+    class="alert alert-warning mt-2"
+  >
+    <.icon name="hero-exclamation-triangle" class="h-6 w-6 shrink-0" />
+    <span>
+      {@characters |> Enum.count(&(&1.missing_scopes != []))} character(s) were authorized before this
+      server asked for its current permissions. Reconnect them - sign in again with the same character - or features
+      that need the newer permissions will have nothing to work with.
+    </span>
+    <.link patch={~p"/characters/authorize"} class="btn btn-sm">Reconnect</.link>
+  </div>
+
+  <div
     :if={@mode == :blocks}
     class="gap-4 grid grid-cols-1 lg:grid-cols-4 md:grid-cols-3 sm:grid-cols-2 mt-4"
   >
@@ -197,6 +211,13 @@
             </div>
           </div>
           <div class="card-actions justify-end">
+            <div
+              :if={character.missing_scopes != []}
+              class="tooltip tooltip-bottom mr-auto"
+              data-tip={"Missing permissions: #{Enum.join(character.missing_scopes, ", ")}"}
+            >
+              <.icon name="hero-exclamation-triangle" class="text-amber-500 h-4 w-4" />
+            </div>
             <.link
               navigate={~p"/characters/#{character.eve_id}"}
               class="tooltip tooltip-bottom"
@@ -272,6 +293,13 @@
       </:col>
       <:col :let={character} label="">
         <div class="flex items-center gap-3 justify-end">
+          <div
+            :if={character.missing_scopes != []}
+            class="tooltip tooltip-left"
+            data-tip={"Missing permissions: #{Enum.join(character.missing_scopes, ", ")}"}
+          >
+            <.icon name="hero-exclamation-triangle" class="text-amber-500 h-4 w-4" />
+          </div>
           <.link
             navigate={~p"/characters/#{character.eve_id}"}
             class="tooltip tooltip-left"

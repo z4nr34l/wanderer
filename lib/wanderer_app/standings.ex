@@ -18,8 +18,8 @@ defmodule WandererApp.Standings do
   Only alliance contacts are kept: a standing towards a single character or corporation says
   nothing about who holds a system.
   """
-  @spec merge([source()]) :: [map()]
-  def merge(read) do
+  @spec merge([source()], (integer() -> {String.t(), String.t()} | nil)) :: [map()]
+  def merge(read, resolve \\ &esi_alliance/1) do
     read
     |> Enum.sort_by(fn {source, _contacts} ->
       Enum.find_index(@source_order, &(&1 == source)) || 0
@@ -29,7 +29,7 @@ defmodule WandererApp.Standings do
     end)
     |> Enum.reduce(%{}, fn contact, acc -> Map.put(acc, contact["contact_id"], contact) end)
     |> Map.values()
-    |> Enum.map(&standing/1)
+    |> Enum.map(&standing(&1, resolve))
     |> Enum.sort_by(& &1.standing)
   end
 
@@ -45,13 +45,17 @@ defmodule WandererApp.Standings do
   end
 
   # the ticker is what shows on the map, so that is what an imported row matches on
-  defp standing(%{"contact_id" => contact_id, "standing" => standing}) do
-    case WandererApp.Esi.get_alliance_info(contact_id) do
-      {:ok, %{"ticker" => ticker, "name" => name}} ->
-        %{alliance: ticker, name: name, standing: standing}
+  defp standing(%{"contact_id" => contact_id, "standing" => standing}, resolve) do
+    case resolve.(contact_id) do
+      {ticker, name} -> %{alliance: ticker, name: name, standing: standing}
+      _ -> %{alliance: to_string(contact_id), name: nil, standing: standing}
+    end
+  end
 
-      _ ->
-        %{alliance: to_string(contact_id), name: nil, standing: standing}
+  defp esi_alliance(alliance_id) do
+    case WandererApp.Esi.get_alliance_info(alliance_id) do
+      {:ok, %{"ticker" => ticker, "name" => name}} -> {ticker, name}
+      _ -> nil
     end
   end
 end

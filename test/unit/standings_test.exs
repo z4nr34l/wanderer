@@ -7,10 +7,12 @@ defmodule WandererApp.StandingsTest do
 
   alias WandererApp.Standings
 
-  # ESI is not reachable from here, so alliance lookups fall back to the id as the ticker - which
-  # is what these assertions match on.
   defp contact(id, standing),
     do: %{"contact_id" => id, "standing" => standing, "contact_type" => "alliance"}
+
+  # the merge is about which list wins, not about what ESI calls an alliance, so the lookup is
+  # stubbed rather than left to reach the network
+  defp resolve, do: fn id -> {"T#{id}", "Alliance #{id}"} end
 
   describe "merge/1" do
     test "the alliance list overrides the corporation, and the corporation the character" do
@@ -20,7 +22,7 @@ defmodule WandererApp.StandingsTest do
         {"alliance", [contact(99_000_001, -10.0)]}
       ]
 
-      assert [%{alliance: "99000001", standing: -10.0}] = Standings.merge(read)
+      assert [%{alliance: "T99000001", standing: -10.0}] = Standings.merge(read, resolve())
     end
 
     test "order of the lists as they arrive does not matter" do
@@ -29,7 +31,7 @@ defmodule WandererApp.StandingsTest do
         {"character", [contact(99_000_001, 10.0)]}
       ]
 
-      assert [%{standing: -10.0}] = Standings.merge(read)
+      assert [%{standing: -10.0}] = Standings.merge(read, resolve())
     end
 
     test "a standing only one list carries still comes through" do
@@ -38,8 +40,8 @@ defmodule WandererApp.StandingsTest do
         {"alliance", [contact(99_000_002, -5.0)]}
       ]
 
-      assert [%{alliance: "99000002", standing: -5.0}, %{alliance: "99000001", standing: 5.0}] =
-               Standings.merge(read)
+      assert [%{alliance: "T99000002", standing: -5.0}, %{alliance: "T99000001", standing: 5.0}] =
+               Standings.merge(read, resolve())
     end
 
     test "contacts that are not alliances are dropped" do
@@ -52,7 +54,7 @@ defmodule WandererApp.StandingsTest do
          ]}
       ]
 
-      assert [%{alliance: "99000001"}] = Standings.merge(read)
+      assert [%{alliance: "T99000001"}] = Standings.merge(read, resolve())
     end
   end
 
