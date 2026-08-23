@@ -9,12 +9,22 @@ import { ZKB_ICON } from '@/hooks/Mapper/icons';
 import { charEveWhoLink, charZKBLink } from '@/hooks/Mapper/helpers/linkHelpers.ts';
 import { getShipName } from './getShipName.ts';
 
+export type PassageMassPresets = {
+  cold: number;
+  hot: number;
+  fitName: string;
+};
+
 type PassageCardType = {
   // compact?: boolean;
   showShipName?: boolean;
   // showSystem?: boolean;
   // useSystemsCache?: boolean;
   onEdit?: () => void;
+  // the masses of a saved rolling fit for this hull, when there is one - marking a jump hot or
+  // cold is what makes the rolling maths add up
+  massPresets?: PassageMassPresets;
+  onSetMass?: (mass: number) => void;
 } & PassageWithSourceTarget;
 
 export const PassageCard = ({
@@ -26,6 +36,8 @@ export const PassageCard = ({
   from,
   mass,
   onEdit,
+  massPresets,
+  onSetMass,
 }: PassageCardType) => {
   const isOwn = false;
   const [hovered, setHovered] = useState(false);
@@ -43,6 +55,14 @@ export const PassageCard = ({
       onEdit?.();
     },
     [onEdit],
+  );
+
+  const handleSetMass = useCallback(
+    (event: MouseEvent<HTMLButtonElement>, value: number) => {
+      event.stopPropagation();
+      onSetMass?.(value);
+    },
+    [onSetMass],
   );
 
   const handleMouseEnter = useCallback(() => setHovered(true), []);
@@ -154,7 +174,49 @@ export const PassageCard = ({
                 </WdTooltipWrapper>
               </span>
 
-              <div className="text-stone-400">{kgToTons(mass ?? parseInt(ship.ship_type_info.mass))}</div>
+              <div className="flex items-center gap-1">
+                {massPresets && (
+                  <>
+                    <WdTooltipWrapper
+                      position={TooltipPosition.top}
+                      content={`Jumped cold in ${massPresets.fitName} - ${kgToTons(massPresets.cold)}`}
+                    >
+                      <button
+                        type="button"
+                        className={clsx(
+                          'px-1 rounded border text-[10px] uppercase leading-4 transition-colors',
+                          mass === massPresets.cold
+                            ? 'border-sky-400 text-sky-300 bg-sky-400/20'
+                            : 'border-stone-600 text-stone-500 hover:text-sky-300 hover:border-sky-400',
+                        )}
+                        onClick={event => handleSetMass(event, massPresets.cold)}
+                      >
+                        cold
+                      </button>
+                    </WdTooltipWrapper>
+
+                    <WdTooltipWrapper
+                      position={TooltipPosition.top}
+                      content={`Jumped hot in ${massPresets.fitName} - ${kgToTons(massPresets.hot)}`}
+                    >
+                      <button
+                        type="button"
+                        className={clsx(
+                          'px-1 rounded border text-[10px] uppercase leading-4 transition-colors',
+                          mass === massPresets.hot
+                            ? 'border-orange-400 text-orange-300 bg-orange-400/20'
+                            : 'border-stone-600 text-stone-500 hover:text-orange-300 hover:border-orange-400',
+                        )}
+                        onClick={event => handleSetMass(event, massPresets.hot)}
+                      >
+                        hot
+                      </button>
+                    </WdTooltipWrapper>
+                  </>
+                )}
+
+                <span className="text-stone-400">{kgToTons(mass ?? parseInt(ship.ship_type_info.mass))}</span>
+              </div>
             </div>
           </div>
 

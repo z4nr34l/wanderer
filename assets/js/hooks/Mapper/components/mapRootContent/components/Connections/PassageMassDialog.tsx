@@ -7,9 +7,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { TimeAgo } from '@/hooks/Mapper/components/ui-kit';
 import { kgToTons } from '@/hooks/Mapper/utils/kgToTons.ts';
 import { getShipName } from './PassageCard/getShipName.ts';
+import type { PassageMassPresets } from './PassageCard/PassageCard.tsx';
 
 type PassageMassDialogProps = {
   passage: PassageWithSourceTarget | null;
+  massPresets?: PassageMassPresets;
   visible: boolean;
   onHide: () => void;
   onSave: (mass: number) => Promise<void> | void;
@@ -30,7 +32,7 @@ const parseMassValue = (value: string) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 };
 
-export const PassageMassDialog = ({ passage, visible, onHide, onSave }: PassageMassDialogProps) => {
+export const PassageMassDialog = ({ passage, massPresets, visible, onHide, onSave }: PassageMassDialogProps) => {
   const [massValue, setMassValue] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -121,6 +123,30 @@ export const PassageMassDialog = ({ passage, visible, onHide, onSave }: PassageM
             <div className="text-xs text-stone-500">
               {parsedMass == null ? 'Enter mass in kg' : `Preview: ${kgToTons(parsedMass)}`}
             </div>
+
+            {massPresets && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-stone-500">{massPresets.fitName}:</span>
+                <WdButton
+                  outlined
+                  size="small"
+                  label={`Cold ${kgToTons(massPresets.cold)}`}
+                  onClick={() => setMassValue(`${massPresets.cold}`)}
+                />
+                <WdButton
+                  outlined
+                  size="small"
+                  label={`Hot ${kgToTons(massPresets.hot)}`}
+                  onClick={() => setMassValue(`${massPresets.hot}`)}
+                />
+              </div>
+            )}
+
+            {!massPresets && (
+              <div className="text-xs text-stone-500">
+                Save a rolling fit for this hull to mark jumps cold or hot in one click.
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-2">

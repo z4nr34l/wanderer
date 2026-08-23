@@ -17,6 +17,8 @@ import classes from './Connections.module.scss';
 import { InfoDrawer, SystemView, TimeAgo } from '@/hooks/Mapper/components/ui-kit';
 import { kgToTons } from '@/hooks/Mapper/utils/kgToTons.ts';
 import { PassageCard } from './PassageCard';
+import type { PassageMassPresets } from './PassageCard/PassageCard.tsx';
+import { parseRollingFits } from '@/hooks/Mapper/constants/rollingFits.ts';
 import { RollingCalculator } from '@/hooks/Mapper/components/mapInterface/widgets';
 import { PassageMassDialog } from './PassageMassDialog';
 
@@ -26,9 +28,16 @@ const getPassageMass = (passage: Passage) => passage.mass ?? parseInt(passage.sh
 export interface ConnectionPassagesContentProps {
   passages: PassageWithSourceTarget[];
   onEditPassage: (passage: PassageWithSourceTarget) => void;
+  massPresetsFor?: (passage: PassageWithSourceTarget) => PassageMassPresets | undefined;
+  onSetPassageMass?: (passage: PassageWithSourceTarget, mass: number) => void;
 }
 
-export const ConnectionPassages = ({ passages = [], onEditPassage }: ConnectionPassagesContentProps) => {
+export const ConnectionPassages = ({
+  passages = [],
+  onEditPassage,
+  massPresetsFor,
+  onSetPassageMass,
+}: ConnectionPassagesContentProps) => {
   const itemTemplate = useCallback(
     (item: PassageWithSourceTarget, options: VirtualScrollerTemplateOptions) => {
       return (
@@ -40,11 +49,16 @@ export const ConnectionPassages = ({ passages = [], onEditPassage }: ConnectionP
           })}
           style={{ height: options.props.itemSize + 'px' }}
         >
-          <PassageCard {...item} onEdit={() => onEditPassage(item)} />
+          <PassageCard
+            {...item}
+            onEdit={() => onEditPassage(item)}
+            massPresets={massPresetsFor?.(item)}
+            onSetMass={mass => onSetPassageMass?.(item, mass)}
+          />
         </div>
       );
     },
-    [onEditPassage],
+    [massPresetsFor, onEditPassage, onSetPassageMass],
   );
 
   if (passages.length === 0) {
@@ -74,6 +88,7 @@ export const Connections = ({ selectedConnection, onHide }: OnTheMapProps) => {
   const {
     data: { connections },
     outCommand,
+    userRemoteSettings: { userRemoteSettings },
   } = useMapRootState();
 
   const cnInfo = useMemo(() => {
@@ -166,6 +181,36 @@ export const Connections = ({ selectedConnection, onHide }: OnTheMapProps) => {
       .filter(x => x.inserted_at && new Date(x.inserted_at).getTime() > markedTime)
       .reduce((acc, x) => acc + getPassageMass(x), 0);
   }, [cnInfo, passages]);
+
+  // a jump only takes the fit's mass off the hole if we know which fit flew it, so the saved
+  // rolling fits are matched to the hull that passed
+  const fitsByShip = useMemo(() => {
+    const fits = parseRollingFits(userRemoteSettings.rolling_fits);
+
+    return new Map(fits.map(fit => [fit.ship_name.toLowerCase(), fit]));
+  }, [userRemoteSettings.rolling_fits]);
+
+  const massPresetsFor = useCallback(
+    (passage: Passage) => {
+      const fit = fitsByShip.get(passage.ship.ship_type_info.name.toLowerCase());
+
+      return fit ? { cold: fit.cold_mass, hot: fit.hot_mass, fitName: fit.name } : undefined;
+    },
+    [fitsByShip],
+  );
+
+  const handleSetPassageMass = useCallback(
+    async (passage: Passage, mass: number) => {
+      await outCommand({
+        type: OutCommand.updatePassageMass,
+        data: { id: passage.id, mass },
+      });
+
+      setPassages(prev => prev.map(x => (x.id === passage.id ? { ...x, mass } : x)));
+      setEditingPassage(prev => (prev && prev.id === passage.id ? { ...prev, mass } : prev));
+    },
+    [outCommand],
+  );
 
   const handleEditPassage = useCallback((passage: PassageWithSourceTarget) => {
     setEditingPassage(passage);
@@ -269,7 +314,12 @@ export const Connections = ({ selectedConnection, onHide }: OnTheMapProps) => {
         {/* separator */}
         <div className="w-full h-px bg-neutral-800 px-0.5"></div>
 
-        <ConnectionPassages passages={preparedPassages} onEditPassage={handleEditPassage} />
+        <ConnectionPassages
+          passages={preparedPassages}
+          onEditPassage={handleEditPassage}
+          massPresetsFor={massPresetsFor}
+          onSetPassageMass={handleSetPassageMass}
+        />
 
         {isWormhole && (
           <>
@@ -282,11 +332,7 @@ export const Connections = ({ selectedConnection, onHide }: OnTheMapProps) => {
                   alpha
                 </span>
               </span>
-              <RollingCalculator
-                connection={cnInfo}
-                passedMass={approximateMass}
-                massSinceMark={massSinceMassStatus}
-              />
+              <RollingCalculator connection={cnInfo} passedMass={approximateMass} massSinceMark={massSinceMassStatus} />
             </div>
           </>
         )}
@@ -294,6 +340,7 @@ export const Connections = ({ selectedConnection, onHide }: OnTheMapProps) => {
 
       <PassageMassDialog
         passage={editingPassage}
+        massPresets={editingPassage ? massPresetsFor(editingPassage) : undefined}
         visible={editingPassage != null}
         onHide={handleHidePassageDialog}
         onSave={handleSavePassageMass}
