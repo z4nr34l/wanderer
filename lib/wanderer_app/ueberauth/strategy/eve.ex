@@ -28,9 +28,9 @@ defmodule WandererApp.Ueberauth.Strategy.Eve do
       true ->
         scopes =
           cond do
-            is_admin? -> option(conn, :admin_scope) || params["scope"]
-            with_wallet -> option(conn, :wallet_scope) || params["scope"]
-            true -> option(conn, :default_scope) || params["scope"]
+            is_admin? -> scope(conn, :admin_scope) || params["scope"]
+            with_wallet -> scope(conn, :wallet_scope) || params["scope"]
+            true -> scope(conn, :default_scope) || params["scope"]
           end
 
         params =
@@ -221,6 +221,24 @@ defmodule WandererApp.Ueberauth.Strategy.Eve do
 
   defp option(conn, key) do
     Keyword.get(options(conn), key, Keyword.get(default_options(), key))
+  end
+
+  # In a release the router's plug options are frozen at build time, so a scope list that comes
+  # from the environment has to be read here rather than taken from the compiled options -
+  # otherwise the login link asks for yesterday's scopes.
+  defp scope(conn, key) do
+    configured_scope(key) || option(conn, key)
+  end
+
+  defp configured_scope(key) do
+    :ueberauth
+    |> Application.get_env(Ueberauth, [])
+    |> Keyword.get(:providers, [])
+    |> Keyword.get(:eve)
+    |> case do
+      {_strategy, opts} -> Keyword.get(opts, key)
+      _ -> nil
+    end
   end
 
   defp check_invite_valid(invite_token) do
