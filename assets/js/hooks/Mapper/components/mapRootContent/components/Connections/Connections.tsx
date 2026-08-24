@@ -8,6 +8,8 @@ import {
   PassageWithSourceTarget,
   SolarSystemConnection,
 } from '@/hooks/Mapper/types';
+import { Commands, CommandPassageRecorded } from '@/hooks/Mapper/types/mapHandlers.ts';
+import { useMapEventListener } from '@/hooks/Mapper/events';
 import clsx from 'clsx';
 import { Sidebar } from 'primereact/sidebar';
 import { VirtualScroller, VirtualScrollerTemplateOptions } from 'primereact/virtualscroller';
@@ -161,6 +163,26 @@ export const Connections = ({ selectedConnection, onHide }: OnTheMapProps) => {
     loadInfo(selectedConnection);
     loadPassages(selectedConnection);
   }, [loadInfo, loadPassages, selectedConnection]);
+
+  // someone jumping the hole takes mass off it, so the rolling count follows the jump rather
+  // than waiting for the sidebar to be opened again
+  useMapEventListener(event => {
+    if (event.name !== Commands.passageRecorded || !cnInfo) {
+      return;
+    }
+
+    const { solar_system_source_id, solar_system_target_id } = event.data as CommandPassageRecorded;
+    const jumped = [`${solar_system_source_id}`, `${solar_system_target_id}`];
+
+    if (!jumped.includes(cnInfo.source) || !jumped.includes(cnInfo.target)) {
+      return;
+    }
+
+    loadInfo(cnInfo);
+    loadPassages(cnInfo);
+
+    return true;
+  });
 
   const approximateMass = useMemo(() => {
     return passages.reduce((acc, x) => acc + getPassageMass(x), 0);

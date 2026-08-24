@@ -75,7 +75,8 @@ defmodule WandererAppWeb.MapEventHandler do
   @map_connection_events [
     :add_connection,
     :remove_connections,
-    :update_connection
+    :update_connection,
+    :passage_recorded
   ]
 
   @map_connection_ui_events [

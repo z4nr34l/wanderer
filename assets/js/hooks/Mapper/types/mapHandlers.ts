@@ -44,6 +44,7 @@ export enum Commands {
   pingAdded = 'ping_added',
   pingCancelled = 'ping_cancelled',
   pingBlocked = 'ping_blocked',
+  passageRecorded = 'passage_recorded',
 }
 
 export type Command =
@@ -70,6 +71,7 @@ export type Command =
   | Commands.centerSystem
   | Commands.linkSignatureToSystem
   | Commands.signaturesUpdated
+  | Commands.passageRecorded
   | Commands.systemCommentAdded
   | Commands.systemCommentRemoved
   | Commands.systemCommentsUpdated
@@ -140,6 +142,11 @@ export type CommandLinkSignatureToSystem = {
   solar_system_target: number;
 };
 export type CommandLinkSignaturesUpdated = number;
+
+export type CommandPassageRecorded = {
+  solar_system_source_id: number;
+  solar_system_target_id: number;
+};
 export type CommandCommentAdd = {
   solarSystemId: number;
   comment: CommentType;
@@ -213,6 +220,7 @@ export interface CommandData {
   [Commands.centerSystem]: CommandCenterSystem;
   [Commands.linkSignatureToSystem]: CommandLinkSignatureToSystem;
   [Commands.signaturesUpdated]: CommandLinkSignaturesUpdated;
+  [Commands.passageRecorded]: CommandPassageRecorded;
   [Commands.characterActivityData]: CommandCharacterActivityData;
   [Commands.trackingCharactersData]: CommandTrackingCharactersData;
   [Commands.userSettingsUpdated]: CommandUserSettingsUpdated;

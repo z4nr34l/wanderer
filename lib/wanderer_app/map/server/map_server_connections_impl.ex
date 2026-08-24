@@ -680,6 +680,11 @@ defmodule WandererApp.Map.Server.ConnectionsImpl do
           solar_system_source_id: old_location.solar_system_id,
           solar_system_target_id: location.solar_system_id
         })
+
+      Impl.broadcast!(map_id, :passage_recorded, %{
+        solar_system_source_id: old_location.solar_system_id,
+        solar_system_target_id: location.solar_system_id
+      })
     end
 
     case WandererApp.Map.check_connection(map_id, location, old_location) do

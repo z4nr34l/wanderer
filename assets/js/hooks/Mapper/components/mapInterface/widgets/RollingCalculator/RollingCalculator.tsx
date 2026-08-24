@@ -8,12 +8,7 @@ import { WdButton } from '@/hooks/Mapper/components/ui-kit';
 import { useMapRootState } from '@/hooks/Mapper/mapRootProvider';
 import { OutCommand, SolarSystemConnection } from '@/hooks/Mapper/types';
 import { useToast } from '@/hooks/Mapper/ToastProvider.tsx';
-import {
-  formatMass,
-  MASS_STATUS_RANGES,
-  parseRollingFits,
-  RollingFit,
-} from '@/hooks/Mapper/constants/rollingFits.ts';
+import { formatMass, MASS_STATUS_RANGES, parseRollingFits, RollingFit } from '@/hooks/Mapper/constants/rollingFits.ts';
 import { UserSettingsRemoteProps } from '@/hooks/Mapper/constants/userSettings.ts';
 
 type JumpPlan = {
@@ -38,11 +33,7 @@ export interface RollingCalculatorProps {
   massSinceMark?: number;
 }
 
-export const RollingCalculator = ({
-  connection,
-  passedMass = 0,
-  massSinceMark = 0,
-}: RollingCalculatorProps) => {
+export const RollingCalculator = ({ connection, passedMass = 0, massSinceMark = 0 }: RollingCalculatorProps) => {
   const {
     outCommand,
     data: { wormholesData },
@@ -63,10 +54,7 @@ export const RollingCalculator = ({
 
   const fits = useMemo(() => parseRollingFits(userRemoteSettings.rolling_fits), [userRemoteSettings.rolling_fits]);
 
-  const fit = useMemo(
-    () => fits.find(x => x.id === selectedFitId) ?? fits[0],
-    [fits, selectedFitId],
-  );
+  const fit = useMemo(() => fits.find(x => x.id === selectedFitId) ?? fits[0], [fits, selectedFitId]);
 
   const holeOptions = useMemo(
     () =>
@@ -117,13 +105,13 @@ export const RollingCalculator = ({
       remainingMax,
       cold: planJumps(
         fit.cold_mass,
-        markedAtFlip ? remainingMin : remainingMin,
+        remainingMin,
         markedAtFlip ? remainingMin : remainingMax,
         wormhole.max_mass_per_jump,
       ),
       hot: planJumps(
         fit.hot_mass,
-        markedAtFlip ? remainingMin : remainingMin,
+        remainingMin,
         markedAtFlip ? remainingMin : remainingMax,
         wormhole.max_mass_per_jump,
       ),
@@ -197,8 +185,8 @@ export const RollingCalculator = ({
         {plan.overLimit
           ? 'too heavy for this hole'
           : plan.minJumps === plan.maxJumps
-            ? `${plan.maxJumps} jumps`
-            : `${plan.minJumps} - ${plan.maxJumps} jumps`}
+            ? `${plan.maxJumps} jumps left`
+            : `${plan.minJumps} - ${plan.maxJumps} jumps left`}
       </span>
       <span className="text-stone-500">{formatMass(plan.perJump)}</span>
     </div>
@@ -206,78 +194,92 @@ export const RollingCalculator = ({
 
   return (
     <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <Dropdown
-            className="text-sm flex-1"
-            value={fit?.id ?? null}
-            options={fits.map(x => ({ label: `${x.name} (${x.ship_name})`, value: x.id }))}
-            onChange={e => setSelectedFitId(e.value)}
-            placeholder={fits.length ? 'Select a fit' : 'No fits yet'}
-            emptyMessage="Paste a fit to get started"
-          />
-          <WdButton size="small" outlined icon="pi pi-plus" onClick={() => setShowAddFit(true)} />
-          <WdButton size="small" outlined severity="danger" icon="pi pi-trash" disabled={!fit} onClick={handleRemoveFit} />
-        </div>
-
+      <div className="flex items-center gap-2">
         <Dropdown
-          className="text-sm"
-          value={wormhole?.name ?? null}
-          options={holeOptions}
-          onChange={e => setHoleType(e.value)}
-          filter
-          placeholder="Hole type"
-          emptyMessage="No wormhole data"
+          className="text-sm flex-1"
+          value={fit?.id ?? null}
+          options={fits.map(x => ({ label: `${x.name} (${x.ship_name})`, value: x.id }))}
+          onChange={e => setSelectedFitId(e.value)}
+          placeholder={fits.length ? 'Select a fit' : 'No fits yet'}
+          emptyMessage="Paste a fit to get started"
         />
+        <WdButton size="small" outlined icon="pi pi-plus" onClick={() => setShowAddFit(true)} />
+        <WdButton
+          size="small"
+          outlined
+          severity="danger"
+          icon="pi pi-trash"
+          disabled={!fit}
+          onClick={handleRemoveFit}
+        />
+      </div>
 
-        {!wormhole && (
-          <span className="text-stone-500 text-[12px]">
-            No hole type recorded on this connection - pick one to get its mass.
-          </span>
-        )}
+      <Dropdown
+        className="text-sm"
+        value={wormhole?.name ?? null}
+        options={holeOptions}
+        onChange={e => setHoleType(e.value)}
+        filter
+        placeholder="Hole type"
+        emptyMessage="No wormhole data"
+      />
 
-        {wormhole && !fit && (
-          <span className="text-stone-500 text-[12px]">Add a fit to see how many jumps it takes.</span>
-        )}
+      {!wormhole && (
+        <span className="text-stone-500 text-[12px]">
+          No hole type recorded on this connection - pick one to get its mass.
+        </span>
+      )}
 
-        {plans && wormhole && (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between text-[12px]">
-              <span className="text-stone-200 font-semibold">{wormhole.name}</span>
-              <span className="text-stone-400">{plans.range.label}</span>
-            </div>
+      {wormhole && !fit && (
+        <span className="text-stone-500 text-[12px]">Add a fit to see how many jumps it takes.</span>
+      )}
 
-            <div className="text-[11px] text-stone-500">
-              {formatMass(wormhole.total_mass)} total, {formatMass(wormhole.max_mass_per_jump)} per jump, about{' '}
-              {formatMass(plans.remainingMin)} - {formatMass(plans.remainingMax)} left
-              {plans.usePassages && <span className="text-stone-400"> (narrowed by recorded passages)</span>}
-            </div>
-
-            <label className="flex items-center gap-2 text-[11px] text-stone-400 select-none cursor-pointer">
-              <input
-                type="checkbox"
-                checked={markedAtFlip}
-                onChange={e => setMarkedAtFlip(e.target.checked)}
-                className="cursor-pointer"
-              />
-              Status was marked the moment it flipped
-            </label>
-
-            <div className="text-[11px] text-stone-500">
-              {markedAtFlip
-                ? `Counting from ${Math.round(plans.range.max * 100)}% left, the point the hole enters this status${
-                    massSinceMark > 0 ? `, less ${formatMass(massSinceMark)} passed since` : ''
-                  }.`
-                : `A status on its own only gives a band - ${Math.round(plans.range.min * 100)}% to ${Math.round(
-                    plans.range.max * 100,
-                  )}% of total - so the jumps are a range. Plan for the high end.`}
-            </div>
-
-            <div className="border-b border-dotted border-stone-700/50" />
-
-            {renderPlan('Cold', plans.cold)}
-            {renderPlan('Hot', plans.hot)}
+      {plans && wormhole && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between text-[12px]">
+            <span className="text-stone-200 font-semibold">{wormhole.name}</span>
+            <span className="text-stone-400">{plans.range.label}</span>
           </div>
-        )}
+
+          <div className="text-[11px] text-stone-500">
+            {formatMass(wormhole.total_mass)} total, {formatMass(wormhole.max_mass_per_jump)} per jump, about{' '}
+            {formatMass(plans.remainingMin)} - {formatMass(plans.remainingMax)} left
+            {plans.usePassages && <span className="text-stone-400"> (narrowed by recorded passages)</span>}
+          </div>
+
+          {passedMass > 0 && (
+            <div className="text-[11px] text-stone-500">
+              {formatMass(passedMass)} has gone through since the connection was found - jumps come off as they are
+              recorded, so mark each one cold or hot in the list above.
+            </div>
+          )}
+
+          <label className="flex items-center gap-2 text-[11px] text-stone-400 select-none cursor-pointer">
+            <input
+              type="checkbox"
+              checked={markedAtFlip}
+              onChange={e => setMarkedAtFlip(e.target.checked)}
+              className="cursor-pointer"
+            />
+            Status was marked the moment it flipped
+          </label>
+
+          <div className="text-[11px] text-stone-500">
+            {markedAtFlip
+              ? `Counting from ${Math.round(plans.range.max * 100)}% left, the point the hole enters this status${
+                  massSinceMark > 0 ? `, less ${formatMass(massSinceMark)} passed since` : ''
+                }.`
+              : `A status on its own only gives a band - ${Math.round(plans.range.min * 100)}% to ${Math.round(
+                  plans.range.max * 100,
+                )}% of total - so the jumps are a range. Plan for the high end.`}
+          </div>
+
+          <div className="border-b border-dotted border-stone-700/50" />
+
+          {renderPlan('Cold', plans.cold)}
+          {renderPlan('Hot', plans.hot)}
+        </div>
+      )}
       <Dialog
         header="Add a fit"
         visible={showAddFit}
@@ -297,7 +299,9 @@ export const RollingCalculator = ({
             rows={12}
             value={fitText}
             onChange={e => setFitText(e.target.value)}
-            placeholder={'Paste an EFT fit here\n\n[Megathron, Rolling Mega]\nDamage Control II\n500MN Quad LiF Restrained Microwarpdrive'}
+            placeholder={
+              'Paste an EFT fit here\n\n[Megathron, Rolling Mega]\nDamage Control II\n500MN Quad LiF Restrained Microwarpdrive'
+            }
           />
           <span className="text-stone-500 text-[11px]">
             Masses come from EVE itself - the hull, plus the heaviest prop mod in the fit for the hot number.

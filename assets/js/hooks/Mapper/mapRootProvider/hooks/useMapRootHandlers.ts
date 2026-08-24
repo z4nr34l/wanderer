@@ -183,6 +183,10 @@ export const useMapRootHandlers = (ref: ForwardedRef<MapHandlers>) => {
           case Commands.pingBlocked:
             pingBlocked(data as CommandPingBlocked);
             break;
+
+          case Commands.passageRecorded:
+            // the connection sidebar picks this up to keep the rolling count honest
+            break;
           default:
             console.warn(`JOipP Interface handlers: Unknown command: ${type}`, data);
             break;

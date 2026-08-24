@@ -34,6 +34,13 @@ defmodule WandererAppWeb.MapConnectionsEventHandler do
     )
   end
 
+  # a jump through a hole takes mass off it, and the rolling calculator counts down as they
+  # happen rather than when the sidebar is next opened
+  def handle_server_event(%{event: :passage_recorded, payload: payload}, socket),
+    do:
+      socket
+      |> MapEventHandler.push_map_event("passage_recorded", payload)
+
   def handle_server_event(event, socket),
     do: MapCoreEventHandler.handle_server_event(event, socket)
 
