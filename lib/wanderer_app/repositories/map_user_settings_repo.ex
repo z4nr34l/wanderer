@@ -10,7 +10,6 @@ defmodule WandererApp.MapUserSettingsRepo do
     "bookmark_custom_mapping" => %{},
     "system_auto_tag" => "",
     "system_custom_label_name" => "",
-    "rolling_fits" => [],
     "bookmark_return_hole_ignore" => false,
     "bookmark_return_hole_symbol" => ""
   }
@@ -106,8 +105,11 @@ defmodule WandererApp.MapUserSettingsRepo do
 
   defp strip_system_labels(settings) do
     case Jason.decode(settings) do
-      {:ok, decoded} when is_map(decoded) -> decoded |> Map.delete("system_labels") |> Jason.encode!()
-      _ -> @default_form_data |> Jason.encode!()
+      {:ok, decoded} when is_map(decoded) ->
+        decoded |> Map.delete("system_labels") |> Jason.encode!()
+
+      _ ->
+        @default_form_data |> Jason.encode!()
     end
   end
 

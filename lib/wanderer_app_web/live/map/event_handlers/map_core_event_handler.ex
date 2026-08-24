@@ -275,26 +275,6 @@ defmodule WandererAppWeb.MapCoreEventHandler do
   def handle_ui_event("import_map_data", _params, socket),
     do: {:reply, %{error: "You don't have permission to import map data"}, socket}
 
-  def handle_ui_event("parse_fit", %{"fit" => fit}, socket) do
-    case WandererApp.Fits.masses_from_eft(fit) do
-      {:ok, result} ->
-        {:reply, %{fit: result}, socket}
-
-      {:error, :ship_not_found} ->
-        {:reply, %{error: "Could not read the hull from that fit."}, socket}
-
-      {:error, :types_not_found} ->
-        {:reply, %{error: "EVE did not recognise the items in that fit."}, socket}
-
-      {:error, reason} ->
-        Logger.warning(fn -> "Failed to read fit: #{inspect(reason)}" end)
-
-        {:reply, %{error: "Could not read that fit."}, socket}
-    end
-  end
-
-  # Standings are read from EVE for the character being flown, never stored and never edited -
-  # there is nothing to disagree with, and switching character switches the picture.
   def handle_ui_event(
         "get_character_standings",
         %{"character_eve_id" => character_eve_id},
@@ -398,7 +378,6 @@ defmodule WandererAppWeb.MapCoreEventHandler do
         "bookmark_auto_temp_name",
         "system_auto_tag",
         "system_custom_label_name",
-        "rolling_fits",
         "bookmark_return_hole_ignore",
         "bookmark_return_hole_symbol",
         "connection_bubble_color",

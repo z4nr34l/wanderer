@@ -1,35 +1,5 @@
-export type RollingFit = {
-  id: string;
-  name: string;
-  ship_name: string;
-  // kilograms, as EVE reports them
-  cold_mass: number;
-  hot_mass: number;
-};
-
-export const parseRollingFits = (raw: unknown): RollingFit[] => {
-  if (typeof raw === 'string') {
-    try {
-      return parseRollingFits(JSON.parse(raw));
-    } catch {
-      return [];
-    }
-  }
-
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-
-  return raw.filter(
-    (fit): fit is RollingFit =>
-      !!fit &&
-      typeof fit === 'object' &&
-      typeof (fit as RollingFit).id === 'string' &&
-      typeof (fit as RollingFit).name === 'string' &&
-      typeof (fit as RollingFit).cold_mass === 'number' &&
-      typeof (fit as RollingFit).hot_mass === 'number',
-  );
-};
+// Mass helpers for rolling. Ships are read from EVE rather than pasted in, so nothing here
+// knows about saved fits.
 
 export const formatMass = (kilograms: number): string => {
   if (kilograms >= 1_000_000) {

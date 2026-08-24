@@ -12,7 +12,6 @@ export enum UserSettingsRemoteProps {
   system_auto_tag = 'system_auto_tag',
   system_custom_label_name = 'system_custom_label_name',
   system_labels = 'system_labels',
-  rolling_fits = 'rolling_fits',
   bookmark_return_hole_ignore = 'bookmark_return_hole_ignore',
   bookmark_return_hole_symbol = 'bookmark_return_hole_symbol',
   connection_bubble_color = 'connection_bubble_color',
@@ -33,7 +32,6 @@ export const DEFAULT_REMOTE_SETTINGS = {
   [UserSettingsRemoteProps.system_auto_tag]: '',
   [UserSettingsRemoteProps.system_custom_label_name]: '',
   [UserSettingsRemoteProps.system_labels]: getDefaultSystemLabels(),
-  [UserSettingsRemoteProps.rolling_fits]: [],
   [UserSettingsRemoteProps.bookmark_return_hole_ignore]: false,
   [UserSettingsRemoteProps.bookmark_return_hole_symbol]: '',
   // empty means "whatever the theme says" - see BUBBLE_CSS_VARS
@@ -54,7 +52,6 @@ export const UserSettingsRemoteList = [
   UserSettingsRemoteProps.bookmark_auto_temp_name,
   UserSettingsRemoteProps.system_auto_tag,
   UserSettingsRemoteProps.system_custom_label_name,
-  UserSettingsRemoteProps.rolling_fits,
   UserSettingsRemoteProps.bookmark_return_hole_ignore,
   UserSettingsRemoteProps.bookmark_return_hole_symbol,
   UserSettingsRemoteProps.connection_bubble_color,

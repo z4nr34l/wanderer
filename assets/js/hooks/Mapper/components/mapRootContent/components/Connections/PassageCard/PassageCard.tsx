@@ -185,7 +185,8 @@ export const PassageCard = ({
                         type="button"
                         className={clsx(
                           'px-1 rounded border text-[10px] uppercase leading-4 transition-colors',
-                          mass === massPresets.cold
+                          // nothing marked counts as cold, which is what the calculator subtracts
+                          mass == null || mass === massPresets.cold
                             ? 'border-sky-400 text-sky-300 bg-sky-400/20'
                             : 'border-stone-600 text-stone-500 hover:text-sky-300 hover:border-sky-400',
                         )}
@@ -215,7 +216,9 @@ export const PassageCard = ({
                   </>
                 )}
 
-                <span className="text-stone-400">{kgToTons(mass ?? parseInt(ship.ship_type_info.mass))}</span>
+                <span className="text-stone-400">
+                  {kgToTons(mass ?? massPresets?.cold ?? parseInt(ship.ship_type_info.mass))}
+                </span>
               </div>
             </div>
           </div>

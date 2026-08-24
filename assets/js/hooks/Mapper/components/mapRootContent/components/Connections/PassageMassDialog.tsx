@@ -144,7 +144,7 @@ export const PassageMassDialog = ({ passage, massPresets, visible, onHide, onSav
 
             {!massPresets && (
               <div className="text-xs text-stone-500">
-                Save a rolling fit for this hull to mark jumps cold or hot in one click.
+                Cold and hot are offered when EVE can be asked what this pilot is flying.
               </div>
             )}
           </div>

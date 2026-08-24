@@ -73,49 +73,4 @@ defmodule WandererApp.FitsTest do
                ])
     end
   end
-
-  describe "parse_eft/1" do
-    test "reads the hull and drops charges, empty slots and cargo" do
-      fit = """
-      [Thorax, Roller]
-      Damage Control II
-      1600mm Steel Plates II
-      [Empty Low slot]
-
-      500MN Quad LiF Restrained Microwarpdrive
-      Warp Disruptor II, Optimal Range Script
-
-      Medium Higgs Anchor I
-
-      Hobgoblin II x5
-      Nanite Repair Paste x50
-      """
-
-      assert {:ok, %{ship_name: "Thorax", items: items}} = Fits.parse_eft(fit)
-
-      assert items == [
-               "Damage Control II",
-               "1600mm Steel Plates II",
-               "500MN Quad LiF Restrained Microwarpdrive",
-               "Warp Disruptor II",
-               "Medium Higgs Anchor I"
-             ]
-    end
-
-    test "keeps duplicates so two of a module weigh twice as much" do
-      fit = """
-      [Thorax, Roller]
-      1600mm Steel Plates II
-      1600mm Steel Plates II
-      """
-
-      assert {:ok, %{items: ["1600mm Steel Plates II", "1600mm Steel Plates II"]}} =
-               Fits.parse_eft(fit)
-    end
-
-    test "rejects anything that is not an EFT block" do
-      assert {:error, :ship_not_found} = Fits.parse_eft("not a fit")
-      assert {:error, :invalid_fit} = Fits.parse_eft(nil)
-    end
-  end
 end

@@ -20,7 +20,6 @@ import { InfoDrawer, SystemView, TimeAgo } from '@/hooks/Mapper/components/ui-ki
 import { kgToTons } from '@/hooks/Mapper/utils/kgToTons.ts';
 import { PassageCard } from './PassageCard';
 import type { PassageMassPresets } from './PassageCard/PassageCard.tsx';
-import { parseRollingFits } from '@/hooks/Mapper/constants/rollingFits.ts';
 import { ShipFitRequest, useShipFits } from '@/hooks/Mapper/hooks/useShipFits.ts';
 import { RollingCalculator } from '@/hooks/Mapper/components/mapInterface/widgets';
 import { PassageMassDialog } from './PassageMassDialog';
@@ -91,7 +90,6 @@ export const Connections = ({ selectedConnection, onHide }: OnTheMapProps) => {
   const {
     data: { connections, characters, userCharacters },
     outCommand,
-    userRemoteSettings: { userRemoteSettings },
   } = useMapRootState();
 
   const cnInfo = useMemo(() => {
@@ -185,36 +183,8 @@ export const Connections = ({ selectedConnection, onHide }: OnTheMapProps) => {
     return true;
   });
 
-  const approximateMass = useMemo(() => {
-    return passages.reduce((acc, x) => acc + getPassageMass(x), 0);
-  }, [passages]);
-
-  // rolling counts from the moment the mass status was marked, so only what went through after
-  // that is still missing from the hole
-  const massSinceMassStatus = useMemo(() => {
-    const markedAt = cnInfo?.mass_status_updated_at;
-
-    if (!markedAt) {
-      return 0;
-    }
-
-    const markedTime = new Date(markedAt).getTime();
-
-    return passages
-      .filter(x => x.inserted_at && new Date(x.inserted_at).getTime() > markedTime)
-      .reduce((acc, x) => acc + getPassageMass(x), 0);
-  }, [cnInfo, passages]);
-
-  // a jump only takes the fit's mass off the hole if we know which fit flew it, so the saved
-  // rolling fits are matched to the hull that passed
-  const fitsByShip = useMemo(() => {
-    const fits = parseRollingFits(userRemoteSettings.rolling_fits);
-
-    return new Map(fits.map(fit => [fit.ship_name.toLowerCase(), fit]));
-  }, [userRemoteSettings.rolling_fits]);
-
-  // the user's own characters can have their current ship weighed straight from EVE, which beats
-  // any saved fit - it is the ship they are actually rolling with
+  // the user's own characters have their current ship weighed straight from EVE - that is the
+  // ship they are rolling with, and nothing has to be kept up to date by hand
   const ownShips = useMemo(() => {
     const own = new Set(userCharacters);
 
@@ -238,23 +208,46 @@ export const Connections = ({ selectedConnection, onHide }: OnTheMapProps) => {
 
       // only when they are still in the hull that passed - the live fit is the ship they are in
       // now, not the one they were in an hour ago
-      if (character?.ship?.ship_type_id === passage.ship.ship_type_id) {
-        const live = fitFor({
-          characterEveId: character.eve_id,
-          shipKey: `${character.ship?.ship_type_id}:${character.ship?.ship_name}`,
-        });
-
-        if (live) {
-          return { cold: live.cold_mass, hot: live.hot_mass, fitName: `${live.ship_name} in space` };
-        }
+      if (character?.ship?.ship_type_id !== passage.ship.ship_type_id) {
+        return undefined;
       }
 
-      const fit = fitsByShip.get(passage.ship.ship_type_info.name.toLowerCase());
+      const live = fitFor({
+        characterEveId: character.eve_id,
+        shipKey: `${character.ship?.ship_type_id}:${character.ship?.ship_name}`,
+      });
 
-      return fit ? { cold: fit.cold_mass, hot: fit.hot_mass, fitName: fit.name } : undefined;
+      return live ? { cold: live.cold_mass, hot: live.hot_mass, fitName: live.ship_name } : undefined;
     },
-    [fitFor, fitsByShip, ownShips],
+    [fitFor, ownShips],
   );
+
+  // an unmarked jump is counted as a cold one in the ship that pilot is flying - marking it hot
+  // is the only thing left to say
+  const passageMass = useCallback(
+    (passage: Passage) => passage.mass ?? massPresetsFor(passage)?.cold ?? getPassageMass(passage),
+    [massPresetsFor],
+  );
+
+  const approximateMass = useMemo(() => {
+    return passages.reduce((acc, x) => acc + passageMass(x), 0);
+  }, [passageMass, passages]);
+
+  // rolling counts from the moment the mass status was marked, so only what went through after
+  // that is still missing from the hole
+  const massSinceMassStatus = useMemo(() => {
+    const markedAt = cnInfo?.mass_status_updated_at;
+
+    if (!markedAt) {
+      return 0;
+    }
+
+    const markedTime = new Date(markedAt).getTime();
+
+    return passages
+      .filter(x => x.inserted_at && new Date(x.inserted_at).getTime() > markedTime)
+      .reduce((acc, x) => acc + passageMass(x), 0);
+  }, [cnInfo, passageMass, passages]);
 
   const handleSetPassageMass = useCallback(
     async (passage: Passage, mass: number) => {

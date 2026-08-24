@@ -1,41 +1,35 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Dropdown } from 'primereact/dropdown';
-import { InputTextarea } from 'primereact/inputtextarea';
-import { Dialog } from 'primereact/dialog';
-import { InputText } from 'primereact/inputtext';
 import clsx from 'clsx';
 import { WdButton } from '@/hooks/Mapper/components/ui-kit';
 import { useMapRootState } from '@/hooks/Mapper/mapRootProvider';
-import { OutCommand, SolarSystemConnection } from '@/hooks/Mapper/types';
-import { useToast } from '@/hooks/Mapper/ToastProvider.tsx';
-import { formatMass, MASS_STATUS_RANGES, parseRollingFits, RollingFit } from '@/hooks/Mapper/constants/rollingFits.ts';
-import { UserSettingsRemoteProps } from '@/hooks/Mapper/constants/userSettings.ts';
+import { SolarSystemConnection } from '@/hooks/Mapper/types';
+import { formatMass, MASS_STATUS_RANGES } from '@/hooks/Mapper/constants/rollingFits.ts';
 import { ShipFitRequest, useShipFits } from '@/hooks/Mapper/hooks/useShipFits.ts';
-
-// the ship the character is in right now, weighed by EVE rather than pasted in
-const LIVE_FIT_ID = '__live__';
+import { JumpCount, jumpsToTarget, TARGETS } from './jumps.ts';
 
 const FIT_ERRORS: Record<string, string> = {
   no_scope: 'EVE will not show this ship - reconnect the character to grant asset access.',
-  no_ship: 'This character is not in a ship EVE will tell us about.',
+  no_ship: 'EVE is not reporting a ship for this character.',
   character_not_tracked: 'Track this character on the map to read its ship.',
-  // the instance does not ask for asset access at all, so there is nothing for anyone to fix
-  assets_disabled: '',
+  assets_disabled: 'This map cannot read ships from EVE.',
 };
 
-type JumpPlan = {
-  perJump: number;
-  minJumps: number;
-  maxJumps: number;
-  overLimit: boolean;
-};
+const renderCount = (count: JumpCount) => {
+  if (count.overLimit) {
+    return <span className="text-red-400">too heavy</span>;
+  }
 
-const planJumps = (shipMass: number, remainingMin: number, remainingMax: number, jumpLimit: number): JumpPlan => ({
-  perJump: shipMass,
-  minJumps: shipMass > 0 ? Math.ceil(remainingMin / shipMass) : 0,
-  maxJumps: shipMass > 0 ? Math.ceil(remainingMax / shipMass) : 0,
-  overLimit: jumpLimit > 0 && shipMass > jumpLimit,
-});
+  if (count.max === 0) {
+    return <span className="text-emerald-400">done</span>;
+  }
+
+  return (
+    <span className="font-mono text-stone-200">
+      {count.min === count.max ? count.max : `${count.min} - ${count.max}`}
+    </span>
+  );
+};
 
 export interface RollingCalculatorProps {
   connection?: SolarSystemConnection;
@@ -49,26 +43,15 @@ export const RollingCalculator = ({ connection, passedMass = 0, massSinceMark = 
   const {
     outCommand,
     data: { wormholesData, characters, userCharacters, mainCharacterEveId, followingCharacterEveId },
-    userRemoteSettings: { userRemoteSettings, setUserRemoteSettings },
   } = useMapRootState();
 
-  const { show } = useToast();
-
-  const [selectedFitId, setSelectedFitId] = useState<string | null>(null);
   const [holeType, setHoleType] = useState<string | null>(null);
   // marking the status the moment it flips pins the remaining mass to the top of the band, which
   // is a point rather than a range - that is how a hole gets rolled deliberately
   const [markedAtFlip, setMarkedAtFlip] = useState(true);
-  const [showAddFit, setShowAddFit] = useState(false);
-  const [fitName, setFitName] = useState('');
-  const [fitText, setFitText] = useState('');
-  const [busy, setBusy] = useState(false);
 
-  const fits = useMemo(() => parseRollingFits(userRemoteSettings.rolling_fits), [userRemoteSettings.rolling_fits]);
-
-  // rolling is done in whatever the character is flying, so that ship is read from EVE and
-  // offered first - a saved fit is only needed for a ship nobody is sitting in
-  const liveCharacter = useMemo(() => {
+  // rolling is done in whatever the character is flying, so that ship is what gets weighed
+  const character = useMemo(() => {
     const eveId = mainCharacterEveId ?? followingCharacterEveId;
 
     if (!eveId || !userCharacters.includes(eveId)) {
@@ -78,40 +61,22 @@ export const RollingCalculator = ({ connection, passedMass = 0, massSinceMark = 
     return characters.find(x => x.eve_id === eveId && x.ship);
   }, [characters, followingCharacterEveId, mainCharacterEveId, userCharacters]);
 
-  const liveRequest = useMemo<ShipFitRequest | undefined>(
+  const request = useMemo<ShipFitRequest | undefined>(
     () =>
-      liveCharacter
+      character
         ? {
-            characterEveId: liveCharacter.eve_id,
-            shipKey: `${liveCharacter.ship?.ship_type_id}:${liveCharacter.ship?.ship_name}`,
+            characterEveId: character.eve_id,
+            shipKey: `${character.ship?.ship_type_id}:${character.ship?.ship_name}`,
           }
         : undefined,
-    [liveCharacter],
+    [character],
   );
 
-  const liveRequests = useMemo(() => (liveRequest ? [liveRequest] : []), [liveRequest]);
-  const { fitFor, errorFor, refresh } = useShipFits(outCommand, liveRequests);
+  const requests = useMemo(() => (request ? [request] : []), [request]);
+  const { fitFor, errorFor, refresh } = useShipFits(outCommand, requests);
 
-  const liveShipFit = liveRequest ? fitFor(liveRequest) : undefined;
-  const liveError = liveRequest ? errorFor(liveRequest) : undefined;
-
-  const liveFit = useMemo<RollingFit | undefined>(
-    () =>
-      liveShipFit
-        ? {
-            id: LIVE_FIT_ID,
-            name: `${liveShipFit.ship_name} in space`,
-            ship_name: liveShipFit.ship_name,
-            cold_mass: liveShipFit.cold_mass,
-            hot_mass: liveShipFit.hot_mass,
-          }
-        : undefined,
-    [liveShipFit],
-  );
-
-  const allFits = useMemo(() => (liveFit ? [liveFit, ...fits] : fits), [fits, liveFit]);
-
-  const fit = useMemo(() => allFits.find(x => x.id === selectedFitId) ?? allFits[0], [allFits, selectedFitId]);
+  const fit = request ? fitFor(request) : undefined;
+  const fitError = request ? errorFor(request) : undefined;
 
   const holeOptions = useMemo(
     () =>
@@ -133,7 +98,7 @@ export const RollingCalculator = ({ connection, passedMass = 0, massSinceMark = 
     setHoleType(connection?.wormhole_type ?? null);
   }, [connection?.source, connection?.target, connection?.wormhole_type]);
 
-  const plans = useMemo(() => {
+  const plan = useMemo(() => {
     if (!wormhole || !fit) {
       return undefined;
     }
@@ -154,130 +119,36 @@ export const RollingCalculator = ({ connection, passedMass = 0, massSinceMark = 
     const fromMark = Math.max(bandMax - massSinceMark, 0);
     const remainingMin = markedAtFlip ? Math.min(fromMark, remainingMax) : bandMin;
 
-    return {
-      range,
-      usePassages,
-      fromMark,
-      remainingMin,
-      remainingMax,
-      cold: planJumps(
-        fit.cold_mass,
-        remainingMin,
-        markedAtFlip ? remainingMin : remainingMax,
-        wormhole.max_mass_per_jump,
-      ),
-      hot: planJumps(
-        fit.hot_mass,
-        remainingMin,
-        markedAtFlip ? remainingMin : remainingMax,
-        wormhole.max_mass_per_jump,
-      ),
-    };
-  }, [connection, fit, markedAtFlip, massSinceMark, passedMass, wormhole]);
+    const rows = TARGETS.map(target => {
+      const targetMass = wormhole.total_mass * target.share;
 
-  const handleSaveFit = useCallback(async () => {
-    setBusy(true);
-
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const res: any = await outCommand({ type: OutCommand.parseFit, data: { fit: fitText } });
-
-      if (!res?.fit) {
-        show({ severity: 'error', summary: 'Fit', detail: res?.error ?? 'Could not read that fit.', life: 4000 });
-        return;
-      }
-
-      const parsed: RollingFit = {
-        id: `${Date.now()}`,
-        name: fitName.trim() || res.fit.ship_name,
-        ship_name: res.fit.ship_name,
-        cold_mass: res.fit.cold_mass,
-        hot_mass: res.fit.hot_mass,
+      return {
+        ...target,
+        cold: jumpsToTarget(remainingMin, remainingMax, targetMass, fit.cold_mass, wormhole.max_mass_per_jump),
+        hot: jumpsToTarget(remainingMin, remainingMax, targetMass, fit.hot_mass, wormhole.max_mass_per_jump),
       };
-
-      const next = [...fits, parsed];
-
-      await outCommand({
-        type: OutCommand.updateUserSettings,
-        data: { ...userRemoteSettings, [UserSettingsRemoteProps.rolling_fits]: next },
-      });
-
-      setUserRemoteSettings({ ...userRemoteSettings, [UserSettingsRemoteProps.rolling_fits]: next });
-      setSelectedFitId(parsed.id);
-      setShowAddFit(false);
-      setFitName('');
-      setFitText('');
-
-      show({
-        severity: 'success',
-        summary: 'Fit',
-        detail: `${parsed.ship_name}: ${formatMass(parsed.cold_mass)} cold, ${formatMass(parsed.hot_mass)} hot.`,
-        life: 4000,
-      });
-    } finally {
-      setBusy(false);
-    }
-  }, [fitName, fitText, fits, outCommand, setUserRemoteSettings, show, userRemoteSettings]);
-
-  const handleRemoveFit = useCallback(async () => {
-    if (!fit) {
-      return;
-    }
-
-    const next = fits.filter(x => x.id !== fit.id);
-
-    await outCommand({
-      type: OutCommand.updateUserSettings,
-      data: { ...userRemoteSettings, [UserSettingsRemoteProps.rolling_fits]: next },
     });
 
-    setUserRemoteSettings({ ...userRemoteSettings, [UserSettingsRemoteProps.rolling_fits]: next });
-    setSelectedFitId(next[0]?.id ?? null);
-  }, [fit, fits, outCommand, setUserRemoteSettings, userRemoteSettings]);
-
-  const renderPlan = (label: string, plan: JumpPlan) => (
-    <div className="grid grid-cols-[54px_1fr_auto] items-center gap-2 text-[12px]">
-      <span className="text-stone-400">{label}</span>
-      <span className={clsx('font-mono', plan.overLimit ? 'text-red-400' : 'text-stone-200')}>
-        {plan.overLimit
-          ? 'too heavy for this hole'
-          : plan.minJumps === plan.maxJumps
-            ? `${plan.maxJumps} jumps left`
-            : `${plan.minJumps} - ${plan.maxJumps} jumps left`}
-      </span>
-      <span className="text-stone-500">{formatMass(plan.perJump)}</span>
-    </div>
-  );
+    return { range, usePassages, remainingMin, remainingMax, rows };
+  }, [connection, fit, markedAtFlip, massSinceMark, passedMass, wormhole]);
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <Dropdown
-          className="text-sm flex-1"
-          value={fit?.id ?? null}
-          options={allFits.map(x => ({ label: `${x.name} (${x.ship_name})`, value: x.id }))}
-          onChange={e => setSelectedFitId(e.value)}
-          placeholder={allFits.length ? 'Select a fit' : 'No fits yet'}
-          emptyMessage="Paste a fit to get started"
-        />
-        {liveRequest && (
-          <WdButton
-            size="small"
-            outlined
-            icon="pi pi-refresh"
-            tooltip="Read this ship from EVE again"
-            onClick={() => refresh(liveRequest)}
-          />
+      <div className="flex items-center justify-between gap-2 text-[12px]">
+        {fit ? (
+          <>
+            <span className="text-stone-200 truncate">{fit.ship_name}</span>
+            <span className="text-stone-500 font-mono whitespace-nowrap">
+              {formatMass(fit.cold_mass)} cold / {formatMass(fit.hot_mass)} hot
+            </span>
+          </>
+        ) : (
+          <span className="text-stone-500">
+            {fitError ? (FIT_ERRORS[fitError] ?? 'Could not read the ship from EVE.') : 'Reading your ship from EVE...'}
+          </span>
         )}
-        <WdButton size="small" outlined icon="pi pi-plus" onClick={() => setShowAddFit(true)} />
-        <WdButton
-          size="small"
-          outlined
-          severity="danger"
-          icon="pi pi-trash"
-          disabled={!fit || fit.id === LIVE_FIT_ID}
-          onClick={handleRemoveFit}
-        />
+
+        {request && <WdButton size="small" outlined icon="pi pi-refresh" onClick={() => refresh(request)} />}
       </div>
 
       <Dropdown
@@ -296,35 +167,19 @@ export const RollingCalculator = ({ connection, passedMass = 0, massSinceMark = 
         </span>
       )}
 
-      {wormhole && !fit && (
-        <span className="text-stone-500 text-[12px]">Add a fit to see how many jumps it takes.</span>
-      )}
-
-      {liveError && !liveFit && FIT_ERRORS[liveError] !== '' && (
-        <span className="text-stone-500 text-[12px]">
-          {FIT_ERRORS[liveError] ?? 'Could not read the ship from EVE.'}
-        </span>
-      )}
-
-      {plans && wormhole && (
+      {plan && wormhole && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between text-[12px]">
             <span className="text-stone-200 font-semibold">{wormhole.name}</span>
-            <span className="text-stone-400">{plans.range.label}</span>
+            <span className="text-stone-400">{plan.range.label}</span>
           </div>
 
           <div className="text-[11px] text-stone-500">
             {formatMass(wormhole.total_mass)} total, {formatMass(wormhole.max_mass_per_jump)} per jump, about{' '}
-            {formatMass(plans.remainingMin)} - {formatMass(plans.remainingMax)} left
-            {plans.usePassages && <span className="text-stone-400"> (narrowed by recorded passages)</span>}
+            {formatMass(plan.remainingMin)}
+            {plan.remainingMin === plan.remainingMax ? '' : ` - ${formatMass(plan.remainingMax)}`} left
+            {plan.usePassages && <span className="text-stone-400"> (less what has gone through)</span>}
           </div>
-
-          {passedMass > 0 && (
-            <div className="text-[11px] text-stone-500">
-              {formatMass(passedMass)} has gone through since the connection was found - jumps come off as they are
-              recorded, so mark each one cold or hot in the list above.
-            </div>
-          )}
 
           <label className="flex items-center gap-2 text-[11px] text-stone-400 select-none cursor-pointer">
             <input
@@ -336,53 +191,32 @@ export const RollingCalculator = ({ connection, passedMass = 0, massSinceMark = 
             Status was marked the moment it flipped
           </label>
 
-          <div className="text-[11px] text-stone-500">
-            {markedAtFlip
-              ? `Counting from ${Math.round(plans.range.max * 100)}% left, the point the hole enters this status${
-                  massSinceMark > 0 ? `, less ${formatMass(massSinceMark)} passed since` : ''
-                }.`
-              : `A status on its own only gives a band - ${Math.round(plans.range.min * 100)}% to ${Math.round(
-                  plans.range.max * 100,
-                )}% of total - so the jumps are a range. Plan for the high end.`}
-          </div>
-
           <div className="border-b border-dotted border-stone-700/50" />
 
-          {renderPlan('Cold', plans.cold)}
-          {renderPlan('Hot', plans.hot)}
-        </div>
-      )}
-      <Dialog
-        header="Add a fit"
-        visible={showAddFit}
-        draggable={false}
-        className="w-[520px]"
-        onHide={() => setShowAddFit(false)}
-      >
-        <div className="flex flex-col gap-2">
-          <InputText
-            className="text-sm"
-            value={fitName}
-            onChange={e => setFitName(e.target.value)}
-            placeholder="Name (defaults to the hull)"
-          />
-          <InputTextarea
-            className="text-sm font-mono"
-            rows={12}
-            value={fitText}
-            onChange={e => setFitText(e.target.value)}
-            placeholder={
-              'Paste an EFT fit here\n\n[Megathron, Rolling Mega]\nDamage Control II\n500MN Quad LiF Restrained Microwarpdrive'
-            }
-          />
-          <span className="text-stone-500 text-[11px]">
-            Masses come from EVE itself - the hull, plus the heaviest prop mod in the fit for the hot number.
-          </span>
-          <div className="flex justify-end">
-            <WdButton size="small" label="Add" disabled={busy || fitText.trim() === ''} onClick={handleSaveFit} />
+          <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 gap-y-1 text-[12px] items-center">
+            <span />
+            <span className="text-sky-300 text-[11px] uppercase tracking-wide justify-self-end">cold</span>
+            <span className="text-orange-300 text-[11px] uppercase tracking-wide justify-self-end">hot</span>
+
+            {plan.rows.map(row => (
+              <Row key={row.key} label={row.label} cold={row.cold} hot={row.hot} />
+            ))}
+          </div>
+
+          <div className="text-[11px] text-stone-500">
+            Jumps left in this ship, counted off the passages already recorded. Mark each one cold or hot in the list
+            above, and set the mass status when the hole changes colour - both narrow the count.
           </div>
         </div>
-      </Dialog>
+      )}
     </div>
   );
 };
+
+const Row = ({ label, cold, hot }: { label: string; cold: JumpCount; hot: JumpCount }) => (
+  <>
+    <span className={clsx('text-stone-400')}>{label}</span>
+    <span className="justify-self-end">{renderCount(cold)}</span>
+    <span className="justify-self-end">{renderCount(hot)}</span>
+  </>
+);
