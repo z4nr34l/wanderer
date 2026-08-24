@@ -66,6 +66,27 @@ defmodule WandererApp.Fits do
   def masses_from_eft(_text), do: {:error, :invalid_fit}
 
   @doc """
+  The same two numbers for a hull and a set of fitted type ids, which is what reading a live ship
+  gives us - assets carry type ids rather than names.
+  """
+  @spec masses_from_type_ids(integer(), [integer()]) :: {:ok, fit_masses()} | {:error, term()}
+  def masses_from_type_ids(hull_type_id, item_type_ids) when is_list(item_type_ids) do
+    with {:ok, ship} <- WandererApp.Esi.get_type_info(hull_type_id, []),
+         hull_mass when is_number(hull_mass) <- Map.get(ship, "mass") do
+      parts = Enum.map(item_type_ids, &mass_part(nil, &1))
+
+      {:ok,
+       hull_mass
+       |> compute_masses(parts)
+       |> Map.put(:ship_name, Map.get(ship, "name"))}
+    else
+      nil -> {:error, :ship_mass_unknown}
+      {:error, reason} -> {:error, reason}
+      error -> {:error, error}
+    end
+  end
+
+  @doc """
   Folds a hull mass and everything fitted to it into the cold and hot numbers.
 
   The game applies flat additions first and percentage modifiers after, so a Higgs Anchor doubles
@@ -194,7 +215,7 @@ defmodule WandererApp.Fits do
         group_id = Map.get(info, "group_id")
 
         %{
-          name: name,
+          name: name || Map.get(info, "name"),
           addition: Map.get(attributes, @mass_addition_attribute_id, 0),
           percentage: Map.get(attributes, @mass_percentage_attribute_id, 0),
           own_mass: subsystem_mass(group_id, attributes),

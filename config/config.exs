@@ -39,17 +39,28 @@ config :wanderer_app, WandererAppWeb.Endpoint,
   pubsub_server: WandererApp.PubSub,
   live_view: [signing_salt: "LjxzzFQ1"]
 
+# Reading a character's live ship fit needs the assets scope, and a scope the EVE application
+# does not have enabled breaks every login - so it is opt in, and turning it back off is one
+# variable rather than a rollback.
+eve_assets_scope =
+  if System.get_env("WANDERER_ASSETS_SCOPE", "false") in ["true", "1"],
+    do: " esi-assets.read_assets.v1",
+    else: ""
+
 config :ueberauth, Ueberauth,
   providers: [
     eve:
       {WandererApp.Ueberauth.Strategy.Eve,
        [
          default_scope:
-           "esi-location.read_location.v1 esi-location.read_ship_type.v1 esi-location.read_online.v1 esi-ui.write_waypoint.v1 esi-search.search_structures.v1 esi-alliances.read_contacts.v1 esi-corporations.read_contacts.v1 esi-characters.read_contacts.v1",
+           "esi-location.read_location.v1 esi-location.read_ship_type.v1 esi-location.read_online.v1 esi-ui.write_waypoint.v1 esi-search.search_structures.v1 esi-alliances.read_contacts.v1 esi-corporations.read_contacts.v1 esi-characters.read_contacts.v1" <>
+             eve_assets_scope,
          wallet_scope:
-           "esi-location.read_location.v1 esi-location.read_ship_type.v1 esi-location.read_online.v1 esi-ui.write_waypoint.v1 esi-search.search_structures.v1 esi-wallet.read_character_wallet.v1 esi-alliances.read_contacts.v1 esi-corporations.read_contacts.v1 esi-characters.read_contacts.v1",
+           "esi-location.read_location.v1 esi-location.read_ship_type.v1 esi-location.read_online.v1 esi-ui.write_waypoint.v1 esi-search.search_structures.v1 esi-wallet.read_character_wallet.v1 esi-alliances.read_contacts.v1 esi-corporations.read_contacts.v1 esi-characters.read_contacts.v1" <>
+             eve_assets_scope,
          admin_scope:
-           "esi-location.read_location.v1 esi-location.read_ship_type.v1 esi-location.read_online.v1 esi-ui.write_waypoint.v1 esi-search.search_structures.v1 esi-wallet.read_character_wallet.v1 esi-wallet.read_corporation_wallets.v1 esi-mail.send_mail.v1 esi-alliances.read_contacts.v1 esi-corporations.read_contacts.v1 esi-characters.read_contacts.v1",
+           "esi-location.read_location.v1 esi-location.read_ship_type.v1 esi-location.read_online.v1 esi-ui.write_waypoint.v1 esi-search.search_structures.v1 esi-wallet.read_character_wallet.v1 esi-wallet.read_corporation_wallets.v1 esi-mail.send_mail.v1 esi-alliances.read_contacts.v1 esi-corporations.read_contacts.v1 esi-characters.read_contacts.v1" <>
+             eve_assets_scope,
          callback_path: "/auth/eve/callback"
        ]}
   ]

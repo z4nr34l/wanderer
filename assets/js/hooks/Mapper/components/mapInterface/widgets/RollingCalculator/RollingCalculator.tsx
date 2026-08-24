@@ -10,6 +10,18 @@ import { OutCommand, SolarSystemConnection } from '@/hooks/Mapper/types';
 import { useToast } from '@/hooks/Mapper/ToastProvider.tsx';
 import { formatMass, MASS_STATUS_RANGES, parseRollingFits, RollingFit } from '@/hooks/Mapper/constants/rollingFits.ts';
 import { UserSettingsRemoteProps } from '@/hooks/Mapper/constants/userSettings.ts';
+import { ShipFitRequest, useShipFits } from '@/hooks/Mapper/hooks/useShipFits.ts';
+
+// the ship the character is in right now, weighed by EVE rather than pasted in
+const LIVE_FIT_ID = '__live__';
+
+const FIT_ERRORS: Record<string, string> = {
+  no_scope: 'EVE will not show this ship - reconnect the character to grant asset access.',
+  no_ship: 'This character is not in a ship EVE will tell us about.',
+  character_not_tracked: 'Track this character on the map to read its ship.',
+  // the instance does not ask for asset access at all, so there is nothing for anyone to fix
+  assets_disabled: '',
+};
 
 type JumpPlan = {
   perJump: number;
@@ -36,7 +48,7 @@ export interface RollingCalculatorProps {
 export const RollingCalculator = ({ connection, passedMass = 0, massSinceMark = 0 }: RollingCalculatorProps) => {
   const {
     outCommand,
-    data: { wormholesData },
+    data: { wormholesData, characters, userCharacters, mainCharacterEveId, followingCharacterEveId },
     userRemoteSettings: { userRemoteSettings, setUserRemoteSettings },
   } = useMapRootState();
 
@@ -54,7 +66,52 @@ export const RollingCalculator = ({ connection, passedMass = 0, massSinceMark = 
 
   const fits = useMemo(() => parseRollingFits(userRemoteSettings.rolling_fits), [userRemoteSettings.rolling_fits]);
 
-  const fit = useMemo(() => fits.find(x => x.id === selectedFitId) ?? fits[0], [fits, selectedFitId]);
+  // rolling is done in whatever the character is flying, so that ship is read from EVE and
+  // offered first - a saved fit is only needed for a ship nobody is sitting in
+  const liveCharacter = useMemo(() => {
+    const eveId = mainCharacterEveId ?? followingCharacterEveId;
+
+    if (!eveId || !userCharacters.includes(eveId)) {
+      return undefined;
+    }
+
+    return characters.find(x => x.eve_id === eveId && x.ship);
+  }, [characters, followingCharacterEveId, mainCharacterEveId, userCharacters]);
+
+  const liveRequest = useMemo<ShipFitRequest | undefined>(
+    () =>
+      liveCharacter
+        ? {
+            characterEveId: liveCharacter.eve_id,
+            shipKey: `${liveCharacter.ship?.ship_type_id}:${liveCharacter.ship?.ship_name}`,
+          }
+        : undefined,
+    [liveCharacter],
+  );
+
+  const liveRequests = useMemo(() => (liveRequest ? [liveRequest] : []), [liveRequest]);
+  const { fitFor, errorFor, refresh } = useShipFits(outCommand, liveRequests);
+
+  const liveShipFit = liveRequest ? fitFor(liveRequest) : undefined;
+  const liveError = liveRequest ? errorFor(liveRequest) : undefined;
+
+  const liveFit = useMemo<RollingFit | undefined>(
+    () =>
+      liveShipFit
+        ? {
+            id: LIVE_FIT_ID,
+            name: `${liveShipFit.ship_name} in space`,
+            ship_name: liveShipFit.ship_name,
+            cold_mass: liveShipFit.cold_mass,
+            hot_mass: liveShipFit.hot_mass,
+          }
+        : undefined,
+    [liveShipFit],
+  );
+
+  const allFits = useMemo(() => (liveFit ? [liveFit, ...fits] : fits), [fits, liveFit]);
+
+  const fit = useMemo(() => allFits.find(x => x.id === selectedFitId) ?? allFits[0], [allFits, selectedFitId]);
 
   const holeOptions = useMemo(
     () =>
@@ -198,18 +255,27 @@ export const RollingCalculator = ({ connection, passedMass = 0, massSinceMark = 
         <Dropdown
           className="text-sm flex-1"
           value={fit?.id ?? null}
-          options={fits.map(x => ({ label: `${x.name} (${x.ship_name})`, value: x.id }))}
+          options={allFits.map(x => ({ label: `${x.name} (${x.ship_name})`, value: x.id }))}
           onChange={e => setSelectedFitId(e.value)}
-          placeholder={fits.length ? 'Select a fit' : 'No fits yet'}
+          placeholder={allFits.length ? 'Select a fit' : 'No fits yet'}
           emptyMessage="Paste a fit to get started"
         />
+        {liveRequest && (
+          <WdButton
+            size="small"
+            outlined
+            icon="pi pi-refresh"
+            tooltip="Read this ship from EVE again"
+            onClick={() => refresh(liveRequest)}
+          />
+        )}
         <WdButton size="small" outlined icon="pi pi-plus" onClick={() => setShowAddFit(true)} />
         <WdButton
           size="small"
           outlined
           severity="danger"
           icon="pi pi-trash"
-          disabled={!fit}
+          disabled={!fit || fit.id === LIVE_FIT_ID}
           onClick={handleRemoveFit}
         />
       </div>
@@ -232,6 +298,12 @@ export const RollingCalculator = ({ connection, passedMass = 0, massSinceMark = 
 
       {wormhole && !fit && (
         <span className="text-stone-500 text-[12px]">Add a fit to see how many jumps it takes.</span>
+      )}
+
+      {liveError && !liveFit && FIT_ERRORS[liveError] !== '' && (
+        <span className="text-stone-500 text-[12px]">
+          {FIT_ERRORS[liveError] ?? 'Could not read the ship from EVE.'}
+        </span>
       )}
 
       {plans && wormhole && (

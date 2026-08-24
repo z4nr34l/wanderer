@@ -311,6 +311,7 @@ export enum OutCommand {
   importMapData = 'import_map_data',
   updateUserSettings = 'update_user_settings',
   getCharacterStandings = 'get_character_standings',
+  getShipFit = 'get_ship_fit',
   updateMapSystemLabels = 'update_map_system_labels',
   saveDefaultSettings = 'save_default_settings',
   getDefaultSettings = 'get_default_settings',

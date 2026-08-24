@@ -258,6 +258,22 @@ defmodule WandererApp.Esi.ApiClient do
   def get_character_ship(character_eve_id, opts \\ []),
     do: get_character_auth_data(character_eve_id, "ship", opts ++ @cache_opts)
 
+  @doc """
+  A page of the character's assets. Needs `esi-assets.read_assets.v1`; ESI answers 403 without it.
+
+  Items fitted to a ship are assets like any other - they carry the ship's item id as their
+  location and a slot as their location flag, which is how a live fit is read.
+  """
+  def get_character_assets(character_eve_id, opts \\ []) do
+    page = Keyword.get(opts, :page, 1)
+
+    get_character_auth_data(
+      character_eve_id,
+      "assets",
+      Keyword.put(opts, :params, [{:page, page}])
+    )
+  end
+
   def search(character_eve_id, opts \\ []) do
     params = Keyword.get(opts, :params, %{}) |> Map.new()
 

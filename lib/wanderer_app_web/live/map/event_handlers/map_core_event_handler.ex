@@ -312,6 +312,27 @@ defmodule WandererAppWeb.MapCoreEventHandler do
   def handle_ui_event("get_character_standings", _params, socket),
     do: {:reply, %{standings: []}, socket}
 
+  # the ship a character is in right now, weighed - so rolling does not need a pasted fit
+  def handle_ui_event(
+        "get_ship_fit",
+        %{"character_eve_id" => character_eve_id},
+        %{assigns: %{map_id: map_id, current_user: current_user}} = socket
+      )
+      when is_binary(character_eve_id) do
+    with true <- WandererApp.Character.ShipFit.enabled?() || {:error, :assets_disabled},
+         {:ok, characters} <- WandererApp.Maps.get_tracked_map_characters(map_id, current_user),
+         %{} = character <- Enum.find(characters, &(to_string(&1.eve_id) == character_eve_id)),
+         {:ok, fit} <- WandererApp.Character.ShipFit.for_character(character) do
+      {:reply, %{fit: Map.put(fit, :character_eve_id, character_eve_id)}, socket}
+    else
+      {:error, reason} -> {:reply, %{error: to_string(reason)}, socket}
+      _ -> {:reply, %{error: "character_not_tracked"}, socket}
+    end
+  end
+
+  def handle_ui_event("get_ship_fit", _params, socket),
+    do: {:reply, %{error: "character_not_tracked"}, socket}
+
   def handle_ui_event(
         "get_user_settings",
         _,

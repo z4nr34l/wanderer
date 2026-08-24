@@ -21,6 +21,7 @@ import { kgToTons } from '@/hooks/Mapper/utils/kgToTons.ts';
 import { PassageCard } from './PassageCard';
 import type { PassageMassPresets } from './PassageCard/PassageCard.tsx';
 import { parseRollingFits } from '@/hooks/Mapper/constants/rollingFits.ts';
+import { ShipFitRequest, useShipFits } from '@/hooks/Mapper/hooks/useShipFits.ts';
 import { RollingCalculator } from '@/hooks/Mapper/components/mapInterface/widgets';
 import { PassageMassDialog } from './PassageMassDialog';
 
@@ -88,7 +89,7 @@ export interface OnTheMapProps {
 
 export const Connections = ({ selectedConnection, onHide }: OnTheMapProps) => {
   const {
-    data: { connections },
+    data: { connections, characters, userCharacters },
     outCommand,
     userRemoteSettings: { userRemoteSettings },
   } = useMapRootState();
@@ -212,13 +213,47 @@ export const Connections = ({ selectedConnection, onHide }: OnTheMapProps) => {
     return new Map(fits.map(fit => [fit.ship_name.toLowerCase(), fit]));
   }, [userRemoteSettings.rolling_fits]);
 
+  // the user's own characters can have their current ship weighed straight from EVE, which beats
+  // any saved fit - it is the ship they are actually rolling with
+  const ownShips = useMemo(() => {
+    const own = new Set(userCharacters);
+
+    return characters.filter(x => own.has(x.eve_id) && x.ship);
+  }, [characters, userCharacters]);
+
+  const fitRequests = useMemo<ShipFitRequest[]>(
+    () =>
+      ownShips.map(x => ({
+        characterEveId: x.eve_id,
+        shipKey: `${x.ship?.ship_type_id}:${x.ship?.ship_name}`,
+      })),
+    [ownShips],
+  );
+
+  const { fitFor } = useShipFits(outCommand, fitRequests);
+
   const massPresetsFor = useCallback(
     (passage: Passage) => {
+      const character = ownShips.find(x => x.eve_id === passage.character.eve_id);
+
+      // only when they are still in the hull that passed - the live fit is the ship they are in
+      // now, not the one they were in an hour ago
+      if (character?.ship?.ship_type_id === passage.ship.ship_type_id) {
+        const live = fitFor({
+          characterEveId: character.eve_id,
+          shipKey: `${character.ship?.ship_type_id}:${character.ship?.ship_name}`,
+        });
+
+        if (live) {
+          return { cold: live.cold_mass, hot: live.hot_mass, fitName: `${live.ship_name} in space` };
+        }
+      }
+
       const fit = fitsByShip.get(passage.ship.ship_type_info.name.toLowerCase());
 
       return fit ? { cold: fit.cold_mass, hot: fit.hot_mass, fitName: fit.name } : undefined;
     },
-    [fitsByShip],
+    [fitFor, fitsByShip, ownShips],
   );
 
   const handleSetPassageMass = useCallback(
