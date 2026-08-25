@@ -543,11 +543,21 @@
                 <h2 class="text-lg font-semibold mb-2">Discord</h2>
                 <p class="text-sm text-stone-400 mb-4">
                   Ten minutes after the map stops changing - in practice, ten minutes after whoever
-                  was scanning stopped - the shortest gate routes from the home system to each
-                  mouth of the chain are posted to this webhook, nearest first.
+                  was scanning stopped - the shortest gate routes from the hub to each mouth of the
+                  chain are posted to this webhook, nearest first, with the holes left to home.
                 </p>
 
                 <.form :let={f} for={@discord_form} phx-submit="update_discord" class="flex flex-col gap-3">
+                  <label class="text-sm">Hub</label>
+                  <.live_select
+                    field={f[:hub_solar_system_id]}
+                    debounce={250}
+                    update_min_len={2}
+                    mode={:single}
+                    options={@hub_systems}
+                    placeholder="Where the jumps are counted from, e.g. Jita"
+                  />
+
                   <label class="text-sm">Home system</label>
                   <.live_select
                     field={f[:home_solar_system_id]}
@@ -571,12 +581,28 @@
                       type="button"
                       class="btn-secondary"
                       phx-click="test_discord"
-                      disabled={is_nil(@map.discord_webhook_url) or is_nil(@map.home_solar_system_id)}
+                      disabled={
+                        is_nil(@map.discord_webhook_url) or is_nil(@map.home_solar_system_id) or
+                          is_nil(@map.hub_solar_system_id)
+                      }
                     >
                       Send a test message
                     </.button>
                   </div>
                 </.form>
+
+                <p
+                  :if={@discord_status}
+                  class={[
+                    "text-sm mt-3",
+                    classes(
+                      "text-emerald-400": elem(@discord_status, 0) == :ok,
+                      "text-red-400": elem(@discord_status, 0) == :error
+                    )
+                  ]}
+                >
+                  {elem(@discord_status, 1)}
+                </p>
 
                 <p class="text-xs text-stone-400 mt-2">
                   The test uses the map as it stands right now, and sends the same message the

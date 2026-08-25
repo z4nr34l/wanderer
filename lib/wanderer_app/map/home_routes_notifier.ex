@@ -1,6 +1,6 @@
 defmodule WandererApp.Map.HomeRoutesNotifier do
   @moduledoc """
-  Posts the routes from home to the chain to a map's Discord webhook.
+  Posts the way home from the hub to a map's Discord webhook.
 
   Scanning a chain is a burst of changes, and a message per change would be noise. The message
   goes out once the map has been quiet for ten minutes, which in practice is ten minutes after
@@ -94,9 +94,12 @@ defmodule WandererApp.Map.HomeRoutesNotifier do
     with {:ok, map} <- map(map_id),
          {:ok, url} <- webhook(map),
          {:ok, home_id} <- home_system(map),
-         {:ok, entries} <- HomeRoutes.build(map_id, home_id),
-         {:ok, home_name} <- system_name(home_id),
-         message when is_binary(message) <- HomeRoutes.format_message(home_name, entries) do
+         {:ok, hub_id} <- hub_system(map),
+         {:ok, entries} <- HomeRoutes.build(map_id, hub_id, home_id),
+         {:ok, home_name} <- system_name(home_id, :home_system_unknown),
+         {:ok, hub_name} <- system_name(hub_id, :hub_system_unknown),
+         message when is_binary(message) <-
+           HomeRoutes.format_message(hub_name, home_name, entries) do
       case post(url, message) do
         :ok -> {:ok, :erlang.phash2(message)}
         {:error, reason} -> {:error, reason}
@@ -135,10 +138,13 @@ defmodule WandererApp.Map.HomeRoutesNotifier do
   defp home_system(%{home_solar_system_id: id}) when is_integer(id), do: {:ok, id}
   defp home_system(_map), do: {:error, :no_home_system}
 
-  defp system_name(solar_system_id) do
+  defp hub_system(%{hub_solar_system_id: id}) when is_integer(id), do: {:ok, id}
+  defp hub_system(_map), do: {:error, :no_hub_system}
+
+  defp system_name(solar_system_id, error) do
     case WandererApp.CachedInfo.get_system_static_info(solar_system_id) do
       {:ok, %{solar_system_name: name}} -> {:ok, name}
-      _ -> {:error, :home_system_unknown}
+      _ -> {:error, error}
     end
   end
 

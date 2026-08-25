@@ -1,14 +1,14 @@
 defmodule WandererApp.Map.HomeRoutes do
   @moduledoc """
-  How far the chain is from home.
+  How far home is from the hub.
 
-  A chain hangs off k-space in several places at once, and which of those mouths is worth flying
-  to is a question of gate jumps from the staging system. This works those out: for every k-space
-  system on the map that has a hole to J-space, the shortest gate route from home, sorted, with a
-  note on what the route flies through.
+  A chain hangs off k-space in several places at once, and the question worth answering for
+  someone standing in a trade hub is which of those mouths to fly to: how many gates away it is,
+  what the route passes through, and how many holes are left after it.
 
-  Only gates count. The map's own connections are left out on purpose - the answer is meant for
-  someone sitting at home who has not entered the chain yet.
+  Gate jumps are counted from the hub to the mouth. The map's own connections are left out of
+  that part on purpose - the reader has not entered the chain yet - and are then used on their
+  own to count the holes between the mouth and home.
   """
 
   require Logger
@@ -27,17 +27,20 @@ defmodule WandererApp.Map.HomeRoutes do
           solar_system_id: integer(),
           name: String.t(),
           jumps: non_neg_integer(),
+          holes: non_neg_integer() | nil,
           security: :high | :low | :mixed
         }
 
   @doc """
-  The shortest routes from home to the mouths of the chain, nearest first.
+  The shortest gate routes from the hub to the mouths of the chain, nearest first.
   """
-  @spec build(String.t(), integer(), pos_integer()) :: {:ok, [entry()]} | {:error, term()}
-  def build(map_id, home_solar_system_id, limit \\ @limit)
+  @spec build(String.t(), integer(), integer(), pos_integer()) ::
+          {:ok, [entry()]} | {:error, term()}
+  def build(map_id, hub_solar_system_id, home_solar_system_id, limit \\ @limit)
 
-  def build(map_id, home_solar_system_id, limit)
-      when is_binary(map_id) and is_integer(home_solar_system_id) do
+  def build(map_id, hub_solar_system_id, home_solar_system_id, limit)
+      when is_binary(map_id) and is_integer(hub_solar_system_id) and
+             is_integer(home_solar_system_id) do
     # read from the database rather than the running map, so this answers the same whether or not
     # anyone has the map open
     with {:ok, systems} <- WandererApp.MapSystemRepo.get_visible_by_map(map_id),
@@ -47,12 +50,14 @@ defmodule WandererApp.Map.HomeRoutes do
           {:ok, []}
 
         entrance_ids ->
-          {:ok, routes(map_id, home_solar_system_id, entrance_ids, limit)}
+          depths = hole_depths(connections, home_solar_system_id)
+
+          {:ok, routes(map_id, hub_solar_system_id, entrance_ids, depths, limit)}
       end
     end
   end
 
-  def build(_map_id, _home_solar_system_id, _limit), do: {:error, :no_home_system}
+  def build(_map_id, _hub, _home, _limit), do: {:error, :no_home_system}
 
   @doc """
   The k-space systems on the map that have a hole to J-space - the places you can get to by gate
@@ -78,6 +83,42 @@ defmodule WandererApp.Map.HomeRoutes do
   end
 
   @doc """
+  How many holes lie between home and every system the chain reaches, home itself being none.
+
+  A system the chain does not reach from home is left out - a mouth on a piece of chain nobody
+  has connected to home yet says nothing about how to get home.
+  """
+  @spec hole_depths([map()], integer()) :: %{integer() => non_neg_integer()}
+  def hole_depths(connections, home_solar_system_id) do
+    neighbours =
+      Enum.reduce(connections, %{}, fn %{
+                                         solar_system_source: source,
+                                         solar_system_target: target
+                                       },
+                                       acc ->
+        acc
+        |> Map.update(source, [target], &[target | &1])
+        |> Map.update(target, [source], &[source | &1])
+      end)
+
+    walk(neighbours, [home_solar_system_id], %{home_solar_system_id => 0}, 1)
+  end
+
+  defp walk(_neighbours, [], depths, _depth), do: depths
+
+  defp walk(neighbours, frontier, depths, depth) do
+    next =
+      frontier
+      |> Enum.flat_map(&Map.get(neighbours, &1, []))
+      |> Enum.uniq()
+      |> Enum.reject(&Map.has_key?(depths, &1))
+
+    depths = Enum.reduce(next, depths, &Map.put(&2, &1, depth))
+
+    walk(neighbours, next, depths, depth + 1)
+  end
+
+  @doc """
   What a route flies through: high sec the whole way, never high sec, or a bit of both.
   """
   @spec security_label([number()]) :: :high | :low | :mixed
@@ -94,66 +135,73 @@ defmodule WandererApp.Map.HomeRoutes do
   @doc """
   The Discord message for a set of routes, or nil when there is nothing worth saying.
   """
-  @spec format_message(String.t(), [entry()]) :: String.t() | nil
-  def format_message(_home_name, []), do: nil
+  @spec format_message(String.t(), String.t(), [entry()]) :: String.t() | nil
+  def format_message(_hub_name, _home_name, []), do: nil
 
-  def format_message(home_name, entries) do
-    lines =
-      entries
-      |> Enum.map(fn entry ->
-        "#{entry.jumps}J via #{entry.name}#{security_note(entry.security)}"
-      end)
+  def format_message(hub_name, home_name, entries) do
+    lines = Enum.map(entries, &"#{&1.jumps}J via #{&1.name}#{note(&1)}")
 
-    Enum.join(["**Chain from #{home_name}**" | lines], "\n")
+    Enum.join(["**#{hub_name} → #{home_name}**" | lines], "\n")
   end
 
-  defp security_note(:high), do: " (high sec only)"
-  defp security_note(:low), do: " (low/null only)"
-  defp security_note(:mixed), do: ""
+  defp note(entry) do
+    case Enum.reject([security_note(entry.security), holes_note(entry.holes)], &is_nil/1) do
+      [] -> ""
+      notes -> " (#{Enum.join(notes, ", ")})"
+    end
+  end
 
-  defp routes(map_id, home_solar_system_id, entrance_ids, limit) do
+  defp security_note(:high), do: "high sec only"
+  defp security_note(:low), do: "low/null only"
+  defp security_note(:mixed), do: nil
+
+  defp holes_note(nil), do: nil
+  defp holes_note(1), do: "then 1 hole"
+  defp holes_note(holes), do: "then #{holes} holes"
+
+  defp routes(map_id, hub_solar_system_id, entrance_ids, depths, limit) do
     hubs = Enum.map(entrance_ids, &to_string/1)
 
     {:ok, %{routes: routes, systems_static_data: static_data}} =
       WandererApp.Map.Routes.find(
         map_id,
         hubs,
-        to_string(home_solar_system_id),
+        to_string(hub_solar_system_id),
         @route_settings,
         false
       )
 
-    security_by_system =
+    static_by_system =
       static_data
       |> Enum.reject(&is_nil/1)
       |> Map.new(&{&1.solar_system_id, &1})
 
     routes
     |> Enum.filter(& &1.has_connection)
-    |> Enum.map(&entry(&1, security_by_system))
+    |> Enum.map(&entry(&1, static_by_system, depths))
     |> Enum.reject(&is_nil/1)
-    |> Enum.sort_by(& &1.jumps)
+    |> Enum.sort_by(&{&1.jumps, &1.holes || 99})
     |> Enum.take(limit)
   end
 
-  defp entry(%{destination: destination, systems: systems}, security_by_system) do
-    case Map.get(security_by_system, destination) do
+  defp entry(%{destination: destination, systems: systems}, static_by_system, depths) do
+    case Map.get(static_by_system, destination) do
       nil ->
         nil
 
       %{solar_system_name: name} ->
         securities =
           systems
-          |> Enum.map(&Map.get(security_by_system, &1))
+          |> Enum.map(&Map.get(static_by_system, &1))
           |> Enum.reject(&is_nil/1)
-          |> Enum.map(& &1.security)
-          |> Enum.map(&to_number/1)
+          |> Enum.map(&to_number(&1.security))
           |> Enum.reject(&is_nil/1)
 
         %{
           solar_system_id: destination,
           name: name,
           jumps: length(systems),
+          holes: Map.get(depths, destination),
           security: security_label(securities)
         }
     end

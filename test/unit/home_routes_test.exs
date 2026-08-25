@@ -69,30 +69,66 @@ defmodule WandererApp.Map.HomeRoutesTest do
     end
   end
 
-  describe "format_message/2" do
-    test "one line per route, with what it flies through" do
-      entries = [
-        %{solar_system_id: @jita, name: "Jita", jumps: 5, security: :high},
-        %{solar_system_id: @amarr, name: "Amarr", jumps: 7, security: :mixed},
-        %{solar_system_id: @rens, name: "Rens", jumps: 9, security: :low}
+  describe "hole_depths/2" do
+    test "counts the holes between home and everything the chain reaches" do
+      connections = [
+        connection(@hole, @deeper_hole),
+        connection(@deeper_hole, @jita),
+        connection(@hole, @amarr)
       ]
 
-      assert HomeRoutes.format_message("1DQ1-A", entries) == """
-             **Chain from 1DQ1-A**
-             5J via Jita (high sec only)
+      depths = HomeRoutes.hole_depths(connections, @hole)
+
+      assert depths[@hole] == 0
+      assert depths[@deeper_hole] == 1
+      assert depths[@amarr] == 1
+      assert depths[@jita] == 2
+    end
+
+    test "a mouth on a piece of chain nobody joined to home is not counted" do
+      connections = [connection(@hole, @amarr), connection(@deeper_hole, @jita)]
+
+      depths = HomeRoutes.hole_depths(connections, @hole)
+
+      refute Map.has_key?(depths, @jita)
+    end
+
+    test "the shorter way round wins" do
+      connections = [
+        connection(@hole, @deeper_hole),
+        connection(@deeper_hole, @jita),
+        connection(@hole, @jita)
+      ]
+
+      assert HomeRoutes.hole_depths(connections, @hole)[@jita] == 1
+    end
+  end
+
+  describe "format_message/3" do
+    test "one line per route, with what it flies through and what is left" do
+      entries = [
+        %{solar_system_id: @jita, name: "Jita", jumps: 5, holes: 1, security: :high},
+        %{solar_system_id: @amarr, name: "Amarr", jumps: 7, holes: nil, security: :mixed},
+        %{solar_system_id: @rens, name: "Rens", jumps: 9, holes: 3, security: :low}
+      ]
+
+      assert HomeRoutes.format_message("Jita", "J164751", entries) == """
+             **Jita → J164751**
+             5J via Jita (high sec only, then 1 hole)
              7J via Amarr
-             9J via Rens (low/null only)\
+             9J via Rens (low/null only, then 3 holes)\
              """
     end
 
     test "says nothing when there is nowhere to go" do
-      refute HomeRoutes.format_message("1DQ1-A", [])
+      refute HomeRoutes.format_message("Jita", "J164751", [])
     end
   end
 
-  describe "build/3" do
-    test "a map without a home system has no answer" do
-      assert {:error, :no_home_system} = HomeRoutes.build("map", nil)
+  describe "build/4" do
+    test "a map without a hub or a home has no answer" do
+      assert {:error, :no_home_system} = HomeRoutes.build("map", nil, 31_001_269)
+      assert {:error, :no_home_system} = HomeRoutes.build("map", 30_000_142, nil)
     end
   end
 

@@ -41,6 +41,14 @@ defmodule WandererApp.Api.MapDiscordSettingsTest do
         })
 
       assert {:error, :no_home_system} = WandererApp.Map.HomeRoutesNotifier.deliver(map.id)
+
+      {:ok, map} =
+        MapResource.update_discord_settings(map, %{
+          discord_webhook_url: @webhook,
+          home_solar_system_id: 31_001_269
+        })
+
+      assert {:error, :no_hub_system} = WandererApp.Map.HomeRoutesNotifier.deliver(map.id)
     end
 
     test "an unknown map is not a webhook problem" do
