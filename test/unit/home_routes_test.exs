@@ -104,31 +104,55 @@ defmodule WandererApp.Map.HomeRoutesTest do
     end
   end
 
-  describe "format_message/3" do
-    test "one line per route, with what it flies through and what is left" do
+  describe "format_message/2" do
+    test "one line per hub, with what the route flies through and what is left" do
       entries = [
-        %{solar_system_id: @jita, name: "Jita", jumps: 5, holes: 1, security: :high},
-        %{solar_system_id: @amarr, name: "Amarr", jumps: 7, holes: nil, security: :mixed},
-        %{solar_system_id: @rens, name: "Rens", jumps: 9, holes: 3, security: :low}
+        %{
+          hub_name: "Jita",
+          solar_system_id: @amarr,
+          name: "Amarr",
+          jumps: 5,
+          holes: 1,
+          security: :high
+        },
+        %{
+          hub_name: "Rens",
+          solar_system_id: @rens,
+          name: "Hek",
+          jumps: 7,
+          holes: nil,
+          security: :mixed
+        },
+        %{
+          hub_name: "Dodixie",
+          solar_system_id: @jita,
+          name: "Villore",
+          jumps: 9,
+          holes: 3,
+          security: :low
+        }
       ]
 
-      assert HomeRoutes.format_message("Jita", "J164751", entries) == """
-             **Jita → J164751**
-             5J via Jita (high sec only, then 1 hole)
-             7J via Amarr
-             9J via Rens (low/null only, then 3 holes)\
+      assert HomeRoutes.format_message("J164751", entries) == """
+             **Way home to J164751**
+             Jita: 5J via Amarr (high sec only, then 1 hole)
+             Rens: 7J via Hek
+             Dodixie: 9J via Villore (low/null only, then 3 holes)\
              """
     end
 
     test "says nothing when there is nowhere to go" do
-      refute HomeRoutes.format_message("Jita", "J164751", [])
+      refute HomeRoutes.format_message("J164751", [])
     end
   end
 
   describe "build/4" do
-    test "a map without a hub or a home has no answer" do
-      assert {:error, :no_home_system} = HomeRoutes.build("map", nil, 31_001_269)
-      assert {:error, :no_home_system} = HomeRoutes.build("map", 30_000_142, nil)
+    test "a map with no hubs cannot answer" do
+      assert {:error, :no_hubs} = HomeRoutes.build("map", [], 31_001_269)
+    end
+
+    test "a map without a home cannot answer" do
+      assert {:error, :no_home_system} = HomeRoutes.build("map", [30_000_142], nil)
     end
   end
 

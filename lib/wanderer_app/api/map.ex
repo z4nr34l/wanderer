@@ -128,8 +128,7 @@ defmodule WandererApp.Api.Map do
         :owner_id,
         :sse_enabled,
         :discord_webhook_url,
-        :home_solar_system_id,
-        :hub_solar_system_id
+        :home_solar_system_id
       ]
 
       primary?(true)
@@ -156,8 +155,7 @@ defmodule WandererApp.Api.Map do
         :owner_id,
         :sse_enabled,
         :discord_webhook_url,
-        :home_solar_system_id,
-        :hub_solar_system_id
+        :home_solar_system_id
       ]
 
       argument :owner_id_text_input, :string, allow_nil?: true
@@ -204,7 +202,7 @@ defmodule WandererApp.Api.Map do
     end
 
     update :update_discord_settings do
-      accept [:discord_webhook_url, :home_solar_system_id, :hub_solar_system_id]
+      accept [:discord_webhook_url, :home_solar_system_id]
       require_atomic? false
     end
 
@@ -412,11 +410,6 @@ defmodule WandererApp.Api.Map do
     end
 
     attribute :home_solar_system_id, :integer do
-      allow_nil?(true)
-      default(nil)
-    end
-
-    attribute :hub_solar_system_id, :integer do
       allow_nil?(true)
       default(nil)
     end

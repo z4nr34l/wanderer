@@ -186,11 +186,9 @@ defmodule WandererAppWeb.MapsLive do
           discord_form:
             %{
               "discord_webhook_url" => map.discord_webhook_url || "",
-              "home_solar_system_id" => map.home_solar_system_id,
-              "hub_solar_system_id" => map.hub_solar_system_id
+              "home_solar_system_id" => map.home_solar_system_id
             }
             |> to_form(),
-          hub_systems: hub_system_options(map.hub_solar_system_id),
           discord_status: nil,
           home_systems: home_system_options(map),
           layout_options: [
@@ -271,15 +269,7 @@ defmodule WandererAppWeb.MapsLive do
         %{"id" => id, "text" => text} = _change_event,
         socket
       ) do
-    if String.contains?(id, "hub_solar_system_id") do
-      hub_systems = search_all_systems(text)
-
-      send_update(LiveSelect.Component, options: hub_systems, id: id)
-
-      {:noreply, socket |> assign(hub_systems: hub_systems)}
-    else
-      live_select_home_or_acl(id, text, socket)
-    end
+    live_select_home_or_acl(id, text, socket)
   end
 
   def handle_event("validate", %{"form" => form} = _params, socket) do
@@ -594,13 +584,11 @@ defmodule WandererAppWeb.MapsLive do
         %{assigns: %{map: map}} = socket
       ) do
     home_solar_system_id = parse_home_system(params["home_solar_system_id"])
-    hub_solar_system_id = parse_home_system(params["hub_solar_system_id"])
     url = String.trim(url)
 
     case WandererApp.Api.Map.update_discord_settings(map, %{
            discord_webhook_url: (url != "" && url) || nil,
-           home_solar_system_id: home_solar_system_id,
-           hub_solar_system_id: hub_solar_system_id
+           home_solar_system_id: home_solar_system_id
          }) do
       {:ok, updated_map} ->
         {:noreply,
@@ -951,8 +939,10 @@ defmodule WandererAppWeb.MapsLive do
   end
 
   defp discord_error(:no_webhook), do: "Save a webhook URL first."
-  defp discord_error(:no_hub_system), do: "Pick a hub first."
-  defp discord_error(:hub_system_unknown), do: "EVE does not know that hub system."
+
+  defp discord_error(:no_hubs),
+    do: "Add a hub on the map first - the routes are counted from the map's hubs."
+
   defp discord_error(:home_system_unknown), do: "EVE does not know that home system."
   defp discord_error(:no_home_system), do: "Pick a home system first."
 
@@ -982,29 +972,6 @@ defmodule WandererAppWeb.MapsLive do
       |> Enum.find(&(is_binary(&1) and &1 != ""))
 
     %{label: name || "#{system.solar_system_id}", value: system.solar_system_id}
-  end
-
-  defp search_all_systems(text) when is_binary(text) and byte_size(text) > 1 do
-    %{name: text}
-    |> WandererApp.Api.MapSolarSystem.find_by_name!()
-    |> Enum.take(20)
-    |> Enum.map(
-      &%{label: "#{&1.solar_system_name} (#{&1.region_name})", value: &1.solar_system_id}
-    )
-  end
-
-  defp search_all_systems(_text), do: []
-
-  defp hub_system_options(nil), do: []
-
-  defp hub_system_options(solar_system_id) do
-    case WandererApp.CachedInfo.get_system_static_info(solar_system_id) do
-      {:ok, %{solar_system_name: name, region_name: region}} ->
-        [%{label: "#{name} (#{region})", value: solar_system_id}]
-
-      _ ->
-        []
-    end
   end
 
   defp search_map_systems(options, text) when is_binary(text) and text != "" do

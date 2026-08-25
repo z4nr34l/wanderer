@@ -94,12 +94,10 @@ defmodule WandererApp.Map.HomeRoutesNotifier do
     with {:ok, map} <- map(map_id),
          {:ok, url} <- webhook(map),
          {:ok, home_id} <- home_system(map),
-         {:ok, hub_id} <- hub_system(map),
-         {:ok, entries} <- HomeRoutes.build(map_id, hub_id, home_id),
+         {:ok, hub_ids} <- hubs(map),
+         {:ok, entries} <- HomeRoutes.build(map_id, hub_ids, home_id),
          {:ok, home_name} <- system_name(home_id, :home_system_unknown),
-         {:ok, hub_name} <- system_name(hub_id, :hub_system_unknown),
-         message when is_binary(message) <-
-           HomeRoutes.format_message(hub_name, home_name, entries) do
+         message when is_binary(message) <- HomeRoutes.format_message(home_name, entries) do
       case post(url, message) do
         :ok -> {:ok, :erlang.phash2(message)}
         {:error, reason} -> {:error, reason}
@@ -138,8 +136,26 @@ defmodule WandererApp.Map.HomeRoutesNotifier do
   defp home_system(%{home_solar_system_id: id}) when is_integer(id), do: {:ok, id}
   defp home_system(_map), do: {:error, :no_home_system}
 
-  defp hub_system(%{hub_solar_system_id: id}) when is_integer(id), do: {:ok, id}
-  defp hub_system(_map), do: {:error, :no_hub_system}
+  # the hubs are the ones the map already keeps for routes
+  defp hubs(%{hubs: hubs}) when is_list(hubs) do
+    case hubs |> Enum.map(&to_integer/1) |> Enum.reject(&is_nil/1) do
+      [] -> {:error, :no_hubs}
+      ids -> {:ok, ids}
+    end
+  end
+
+  defp hubs(_map), do: {:error, :no_hubs}
+
+  defp to_integer(value) when is_integer(value), do: value
+
+  defp to_integer(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {id, _rest} -> id
+      :error -> nil
+    end
+  end
+
+  defp to_integer(_value), do: nil
 
   defp system_name(solar_system_id, error) do
     case WandererApp.CachedInfo.get_system_static_info(solar_system_id) do
