@@ -182,13 +182,14 @@ defmodule WandererAppWeb.MapsLive do
           is_adding_subscription?: false,
           selected_subscription: nil,
           options_form: options_form_data |> to_form(),
+          map_system_options: map_system_options(map.id),
           discord_form:
             %{
               "discord_webhook_url" => map.discord_webhook_url || "",
               "home_solar_system_id" => map.home_solar_system_id
             }
             |> to_form(),
-          home_systems: home_system_options(map.home_solar_system_id),
+          home_systems: home_system_options(map),
           layout_options: [
             {"Left To Right", "left_to_right"},
             {"Top To Bottom", "top_to_bottom"}
@@ -268,7 +269,7 @@ defmodule WandererAppWeb.MapsLive do
         socket
       ) do
     if String.contains?(id, "home_solar_system_id") do
-      home_systems = search_systems(text)
+      home_systems = search_map_systems(socket.assigns[:map_system_options] || [], text)
 
       send_update(LiveSelect.Component, options: home_systems, id: id)
 
@@ -573,6 +574,16 @@ defmodule WandererAppWeb.MapsLive do
          socket
          |> put_flash(:error, "Failed to delete map. Please try again.")
          |> assign(:maps, AsyncResult.ok(maps))}
+    end
+  end
+
+  def handle_event("test_discord", _params, %{assigns: %{map: map}} = socket) do
+    case WandererApp.Map.HomeRoutesNotifier.deliver(map.id) do
+      {:ok, _digest} ->
+        {:noreply, socket |> put_flash(:info, "Sent the routes to Discord.")}
+
+      {:error, reason} ->
+        {:noreply, socket |> put_flash(:error, discord_error(reason))}
     end
   end
 
@@ -918,20 +929,46 @@ defmodule WandererAppWeb.MapsLive do
     end)
   end
 
-  # the home system is picked by name and stored as the id the routes are calculated from
-  defp search_systems(text) when is_binary(text) and byte_size(text) > 1 do
-    %{name: text}
-    |> WandererApp.Api.MapSolarSystem.find_by_name!()
-    |> Enum.take(20)
-    |> Enum.map(fn system ->
-      %{
-        label: "#{system.solar_system_name} (#{system.region_name})",
-        value: system.solar_system_id
-      }
-    end)
+  defp discord_error(:no_webhook), do: "Save a webhook URL first."
+  defp discord_error(:no_home_system), do: "Pick a home system first."
+
+  defp discord_error(:no_routes),
+    do: "Nothing to say: the map has no k-space system with a hole to the chain."
+
+  defp discord_error(:discord_refused), do: "Discord refused the message - check the URL."
+  defp discord_error(:discord_unreachable), do: "Could not reach Discord."
+  defp discord_error(_reason), do: "Could not send the message."
+
+  # the home system is picked from what is on the map, since that is where the chain hangs
+  defp map_system_options(map_id) do
+    case WandererApp.MapSystemRepo.get_visible_by_map(map_id) do
+      {:ok, systems} ->
+        systems
+        |> Enum.map(&map_system_option/1)
+        |> Enum.sort_by(& &1.label)
+
+      _ ->
+        []
+    end
   end
 
-  defp search_systems(_text), do: []
+  defp map_system_option(system) do
+    name =
+      [system.custom_name, system.temporary_name, system.name]
+      |> Enum.find(&(is_binary(&1) and &1 != ""))
+
+    %{label: name || "#{system.solar_system_id}", value: system.solar_system_id}
+  end
+
+  defp search_map_systems(options, text) when is_binary(text) and text != "" do
+    downcased = String.downcase(text)
+
+    options
+    |> Enum.filter(&String.contains?(String.downcase(&1.label), downcased))
+    |> Enum.take(20)
+  end
+
+  defp search_map_systems(options, _text), do: Enum.take(options, 20)
 
   defp parse_home_system(nil), do: nil
   defp parse_home_system(""), do: nil
@@ -945,15 +982,28 @@ defmodule WandererAppWeb.MapsLive do
 
   defp parse_home_system(value) when is_integer(value), do: value
 
-  defp home_system_options(nil), do: []
+  # the picker opens on what the map holds, with the saved system in the list even if it has
+  # since been removed from the map
+  defp home_system_options(map) do
+    options = map_system_options(map.id)
 
-  defp home_system_options(solar_system_id) do
+    case map.home_solar_system_id do
+      nil ->
+        Enum.take(options, 20)
+
+      id ->
+        if Enum.any?(options, &(&1.value == id)) do
+          Enum.take(options, 20)
+        else
+          [stored_system_option(id) | Enum.take(options, 19)] |> Enum.reject(&is_nil/1)
+        end
+    end
+  end
+
+  defp stored_system_option(solar_system_id) do
     case WandererApp.CachedInfo.get_system_static_info(solar_system_id) do
-      {:ok, %{solar_system_name: name, region_name: region}} ->
-        [%{label: "#{name} (#{region})", value: solar_system_id}]
-
-      _ ->
-        []
+      {:ok, %{solar_system_name: name}} -> %{label: name, value: solar_system_id}
+      _ -> nil
     end
   end
 end

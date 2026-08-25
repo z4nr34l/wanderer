@@ -38,8 +38,10 @@ defmodule WandererApp.Map.HomeRoutes do
 
   def build(map_id, home_solar_system_id, limit)
       when is_binary(map_id) and is_integer(home_solar_system_id) do
-    with {:ok, systems} <- WandererApp.Map.list_systems(map_id),
-         {:ok, connections} <- WandererApp.Map.list_connections(map_id) do
+    # read from the database rather than the running map, so this answers the same whether or not
+    # anyone has the map open
+    with {:ok, systems} <- WandererApp.MapSystemRepo.get_visible_by_map(map_id),
+         {:ok, connections} <- WandererApp.MapConnectionRepo.get_by_map(map_id) do
       case entrances(systems, connections) do
         [] ->
           {:ok, []}

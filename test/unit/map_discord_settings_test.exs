@@ -30,6 +30,25 @@ defmodule WandererApp.Api.MapDiscordSettingsTest do
     assert updated.home_solar_system_id == @jita
   end
 
+  describe "deliver/1" do
+    test "says what is missing rather than posting nothing", %{map: map} do
+      assert {:error, :no_webhook} = WandererApp.Map.HomeRoutesNotifier.deliver(map.id)
+
+      {:ok, map} =
+        MapResource.update_discord_settings(map, %{
+          discord_webhook_url: @webhook,
+          home_solar_system_id: nil
+        })
+
+      assert {:error, :no_home_system} = WandererApp.Map.HomeRoutesNotifier.deliver(map.id)
+    end
+
+    test "an unknown map is not a webhook problem" do
+      assert {:error, :map_not_found} =
+               WandererApp.Map.HomeRoutesNotifier.deliver(Ecto.UUID.generate())
+    end
+  end
+
   test "clearing the webhook turns the announcements off", %{map: map} do
     {:ok, map} =
       MapResource.update_discord_settings(map, %{

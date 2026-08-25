@@ -555,7 +555,7 @@
                     update_min_len={2}
                     mode={:single}
                     options={@home_systems}
-                    placeholder="The system the chain is measured from"
+                    placeholder="Pick one of the map's systems"
                   />
 
                   <.input
@@ -565,10 +565,23 @@
                     placeholder="https://discord.com/api/webhooks/..."
                   />
 
-                  <div>
+                  <div class="flex items-center gap-2">
                     <.button type="submit">Save</.button>
+                    <.button
+                      type="button"
+                      class="btn-secondary"
+                      phx-click="test_discord"
+                      disabled={is_nil(@map.discord_webhook_url) or is_nil(@map.home_solar_system_id)}
+                    >
+                      Send a test message
+                    </.button>
                   </div>
                 </.form>
+
+                <p class="text-xs text-stone-400 mt-2">
+                  The test uses the map as it stands right now, and sends the same message the
+                  timer would.
+                </p>
               </div>
 
               <div :if={@active_settings_tab == "bot"}>

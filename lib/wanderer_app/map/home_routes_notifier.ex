@@ -83,32 +83,62 @@ defmodule WandererApp.Map.HomeRoutesNotifier do
   @impl true
   def handle_info(_message, state), do: {:noreply, state}
 
-  defp announce(map_id, last_digest) do
-    with {:ok, %{discord_webhook_url: url, home_solar_system_id: home_id}}
-         when is_binary(url) and url != "" and is_integer(home_id) <-
-           WandererApp.Api.Map.by_id(map_id),
+  @doc """
+  Works out the routes and posts them now, saying what went wrong if it could not.
+
+  This is what the button in the map's settings calls; the timed run goes through the same code
+  and only adds the check for a message it has already sent.
+  """
+  @spec deliver(String.t()) :: {:ok, non_neg_integer()} | {:error, atom()}
+  def deliver(map_id) when is_binary(map_id) do
+    with {:ok, map} <- map(map_id),
+         {:ok, url} <- webhook(map),
+         {:ok, home_id} <- home_system(map),
          {:ok, entries} <- HomeRoutes.build(map_id, home_id),
          {:ok, home_name} <- system_name(home_id),
          message when is_binary(message) <- HomeRoutes.format_message(home_name, entries) do
-      digest = :erlang.phash2(message)
-
-      if digest == last_digest do
-        :skipped
-      else
-        case post(url, message) do
-          :ok -> {:sent, digest}
-          :error -> :skipped
-        end
+      case post(url, message) do
+        :ok -> {:ok, :erlang.phash2(message)}
+        {:error, reason} -> {:error, reason}
       end
     else
-      _ -> :skipped
+      nil -> {:error, :no_routes}
+      {:error, reason} -> {:error, reason}
+      _ -> {:error, :unknown}
     end
   end
+
+  defp announce(map_id, last_digest) do
+    case deliver(map_id) do
+      {:ok, digest} when digest == last_digest -> :skipped
+      {:ok, digest} -> {:sent, digest}
+      {:error, _reason} -> :skipped
+    end
+  end
+
+  defp map(map_id) do
+    case WandererApp.Api.Map.by_id(map_id) do
+      {:ok, map} -> {:ok, map}
+      _ -> {:error, :map_not_found}
+    end
+  end
+
+  defp webhook(%{discord_webhook_url: url}) when is_binary(url) do
+    case String.trim(url) do
+      "" -> {:error, :no_webhook}
+      trimmed -> {:ok, trimmed}
+    end
+  end
+
+  defp webhook(_map), do: {:error, :no_webhook}
+
+  defp home_system(%{home_solar_system_id: id}) when is_integer(id), do: {:ok, id}
+  defp home_system(_map), do: {:error, :no_home_system}
 
   defp system_name(solar_system_id) do
     case WandererApp.CachedInfo.get_system_static_info(solar_system_id) do
       {:ok, %{solar_system_name: name}} -> {:ok, name}
-      _ -> :error
+      _ -> {:error, :home_system_unknown}
     end
   end
 
@@ -126,11 +156,11 @@ defmodule WandererApp.Map.HomeRoutesNotifier do
           "[HomeRoutes] Discord refused the message: #{status} #{inspect(body)}"
         end)
 
-        :error
+        {:error, :discord_refused}
 
       {:error, reason} ->
         Logger.warning(fn -> "[HomeRoutes] could not reach Discord: #{inspect(reason)}" end)
-        :error
+        {:error, :discord_unreachable}
     end
   end
 
