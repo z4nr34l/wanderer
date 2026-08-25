@@ -182,6 +182,13 @@ defmodule WandererAppWeb.MapsLive do
           is_adding_subscription?: false,
           selected_subscription: nil,
           options_form: options_form_data |> to_form(),
+          discord_form:
+            %{
+              "discord_webhook_url" => map.discord_webhook_url || "",
+              "home_solar_system_id" => map.home_solar_system_id
+            }
+            |> to_form(),
+          home_systems: home_system_options(map.home_solar_system_id),
           layout_options: [
             {"Left To Right", "left_to_right"},
             {"Top To Bottom", "top_to_bottom"}
@@ -570,6 +577,31 @@ defmodule WandererAppWeb.MapsLive do
   end
 
   def handle_event(
+        "update_discord",
+        %{"discord_webhook_url" => url} = params,
+        %{assigns: %{map: map}} = socket
+      ) do
+    home_solar_system_id = parse_home_system(params["home_solar_system_id"])
+    url = String.trim(url)
+
+    case WandererApp.Api.Map.update_discord_settings(map, %{
+           discord_webhook_url: (url != "" && url) || nil,
+           home_solar_system_id: home_solar_system_id
+         }) do
+      {:ok, updated_map} ->
+        {:noreply,
+         socket
+         |> assign(map: updated_map, discord_form: to_form(params))
+         |> put_flash(:info, "Discord settings saved.")}
+
+      {:error, error} ->
+        Logger.error("Failed to save Discord settings: #{inspect(error)}")
+
+        {:noreply, socket |> put_flash(:error, "Could not save the Discord settings.")}
+    end
+  end
+
+  def handle_event(
         "update_options",
         options_form,
         %{assigns: %{map_id: map_id, map: map}} = socket
@@ -900,6 +932,18 @@ defmodule WandererAppWeb.MapsLive do
   end
 
   defp search_systems(_text), do: []
+
+  defp parse_home_system(nil), do: nil
+  defp parse_home_system(""), do: nil
+
+  defp parse_home_system(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {id, _rest} -> id
+      :error -> nil
+    end
+  end
+
+  defp parse_home_system(value) when is_integer(value), do: value
 
   defp home_system_options(nil), do: []
 

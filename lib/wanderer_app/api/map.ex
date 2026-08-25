@@ -55,6 +55,7 @@ defmodule WandererApp.Api.Map do
     define(:update_acls, action: :update_acls)
     define(:update_hubs, action: :update_hubs)
     define(:update_options, action: :update_options)
+    define(:update_discord_settings, action: :update_discord_settings)
     define(:update_system_labels, action: :update_system_labels)
     define(:assign_owner, action: :assign_owner)
     define(:mark_as_deleted, action: :mark_as_deleted)
@@ -197,6 +198,11 @@ defmodule WandererApp.Api.Map do
 
     update :update_options do
       accept [:options]
+      require_atomic? false
+    end
+
+    update :update_discord_settings do
+      accept [:discord_webhook_url, :home_solar_system_id]
       require_atomic? false
     end
 
