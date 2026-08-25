@@ -29,7 +29,7 @@ defmodule WandererApp.Map.HomeRoutes do
           solar_system_id: integer(),
           name: String.t(),
           jumps: non_neg_integer(),
-          holes: non_neg_integer() | nil,
+          holes: non_neg_integer(),
           security: :high | :low | :mixed
         }
 
@@ -47,17 +47,15 @@ defmodule WandererApp.Map.HomeRoutes do
     # anyone has the map open
     with {:ok, systems} <- WandererApp.MapSystemRepo.get_visible_by_map(map_id),
          {:ok, connections} <- WandererApp.MapConnectionRepo.get_by_map(map_id) do
-      case entrances(systems, connections) do
-        [] ->
+      case ways_home(systems, connections, home_solar_system_id) do
+        {[], _depths} ->
           {:ok, []}
 
-        entrance_ids ->
-          depths = hole_depths(connections, home_solar_system_id)
-
+        {reachable, depths} ->
           entries =
             hub_ids
-            |> Enum.flat_map(&best_route(map_id, &1, entrance_ids, depths))
-            |> Enum.sort_by(&{&1.jumps, &1.holes || 99})
+            |> Enum.flat_map(&best_route(map_id, &1, reachable, depths))
+            |> Enum.sort_by(&{&1.jumps, &1.holes})
             |> Enum.take(limit)
 
           {:ok, entries}
@@ -69,8 +67,27 @@ defmodule WandererApp.Map.HomeRoutes do
   def build(_map_id, _hubs, _home, _limit), do: {:error, :no_home_system}
 
   @doc """
+  The mouths that are actually a way home, and how many holes lie behind each.
+
+  A mouth on a piece of chain nobody has joined to home is not a way home however close it is to
+  a hub, and leaving it in is what makes a message look plausible and be wrong.
+  """
+  @spec ways_home([map()], [map()], integer()) ::
+          {[integer()], %{integer() => non_neg_integer()}}
+  def ways_home(systems, connections, home_solar_system_id) do
+    depths = hole_depths(connections, home_solar_system_id)
+
+    reachable =
+      systems
+      |> entrances(connections)
+      |> Enum.filter(&Map.has_key?(depths, &1))
+
+    {reachable, depths}
+  end
+
+  @doc """
   The k-space systems on the map that have a hole to J-space - the places you can get to by gate
-  and then jump into the chain.
+  and then jump into a chain. Whether that chain reaches home is a separate question.
   """
   @spec entrances([map()], [map()]) :: [integer()]
   def entrances(systems, connections) do
@@ -94,8 +111,8 @@ defmodule WandererApp.Map.HomeRoutes do
   @doc """
   How many holes lie between home and every system the chain reaches, home itself being none.
 
-  A system the chain does not reach from home is left out - a mouth on a piece of chain nobody
-  has connected to home yet says nothing about how to get home.
+  A system the chain does not reach from home is left out, which is what keeps mouths belonging
+  to some other chain on the map out of the answer.
   """
   @spec hole_depths([map()], integer()) :: %{integer() => non_neg_integer()}
   def hole_depths(connections, home_solar_system_id) do
@@ -190,7 +207,7 @@ defmodule WandererApp.Map.HomeRoutes do
     |> Enum.filter(& &1.has_connection)
     |> Enum.map(&entry(&1, static_by_system, depths))
     |> Enum.reject(&is_nil/1)
-    |> Enum.sort_by(&{&1.jumps, &1.holes || 99})
+    |> Enum.sort_by(&{&1.jumps, &1.holes})
     |> Enum.take(1)
     |> Enum.map(&Map.put(&1, :hub_name, hub_name))
   end

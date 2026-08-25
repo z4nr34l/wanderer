@@ -104,6 +104,30 @@ defmodule WandererApp.Map.HomeRoutesTest do
     end
   end
 
+  describe "ways_home/3" do
+    test "keeps the mouths that lead home and drops the ones that do not" do
+      systems = [system(@jita), system(@amarr), system(@hole), system(@deeper_hole)]
+
+      connections = [
+        # home - hole - jita
+        connection(@hole, @deeper_hole),
+        connection(@deeper_hole, @jita),
+        # a mouth on somebody else's chain, sitting on the same map
+        connection(@amarr, 31_000_009)
+      ]
+
+      assert {[@jita], depths} = HomeRoutes.ways_home(systems, connections, @hole)
+      assert depths[@jita] == 2
+    end
+
+    test "a chain with no k-space mouth at all is no way home" do
+      systems = [system(@hole), system(@deeper_hole)]
+
+      assert {[], _depths} =
+               HomeRoutes.ways_home(systems, [connection(@hole, @deeper_hole)], @hole)
+    end
+  end
+
   describe "format_message/2" do
     test "one line per hub, with what the route flies through and what is left" do
       entries = [
@@ -120,7 +144,7 @@ defmodule WandererApp.Map.HomeRoutesTest do
           solar_system_id: @rens,
           name: "Hek",
           jumps: 7,
-          holes: nil,
+          holes: 2,
           security: :mixed
         },
         %{
@@ -136,7 +160,7 @@ defmodule WandererApp.Map.HomeRoutesTest do
       assert HomeRoutes.format_message("J164751", entries) == """
              **Way home to J164751**
              Jita: 5J via Amarr (high sec only, then 1 hole)
-             Rens: 7J via Hek
+             Rens: 7J via Hek (then 2 holes)
              Dodixie: 9J via Villore (low/null only, then 3 holes)\
              """
     end
