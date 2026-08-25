@@ -34,7 +34,7 @@ defmodule WandererApp.Map.HomeRoutes do
         }
 
   @doc """
-  The best way home from each of the map's hubs, nearest first.
+  Every mouth of the map, nearest first, each with the hub it is closest to.
   """
   @spec build(String.t(), [integer()], integer(), pos_integer()) ::
           {:ok, %{home: [entry()], unlinked: [entry()]}} | {:error, term()}
@@ -175,7 +175,7 @@ defmodule WandererApp.Map.HomeRoutes do
     Enum.join(["**Way home to #{home_name}**"] ++ home_lines ++ unlinked_lines, "\n")
   end
 
-  defp line(entry), do: "#{entry.hub_name}: #{entry.jumps}J via #{entry.name}#{note(entry)}"
+  defp line(entry), do: "#{entry.name}: #{entry.jumps}J from #{entry.hub_name}#{note(entry)}"
 
   defp note(entry) do
     case Enum.reject([security_note(entry.security), holes_note(entry.holes)], &is_nil/1) do
@@ -194,15 +194,17 @@ defmodule WandererApp.Map.HomeRoutes do
 
   defp routes_for(_map_id, _hub_ids, [], _depths, _limit), do: []
 
+  # one line per mouth, so every way in is named, with whichever hub it is nearest to
   defp routes_for(map_id, hub_ids, entrance_ids, depths, limit) do
     hub_ids
-    |> Enum.flat_map(&best_route(map_id, &1, entrance_ids, depths))
+    |> Enum.flat_map(&routes_from(map_id, &1, entrance_ids, depths))
+    |> Enum.group_by(& &1.solar_system_id)
+    |> Enum.map(fn {_mouth, entries} -> Enum.min_by(entries, & &1.jumps) end)
     |> Enum.sort_by(&{&1.jumps, &1.holes || 99})
     |> Enum.take(limit)
   end
 
-  # one line per hub: the mouth that is fewest gates away, and how many holes are left after it
-  defp best_route(map_id, hub_id, entrance_ids, depths) do
+  defp routes_from(map_id, hub_id, entrance_ids, depths) do
     {:ok, %{routes: routes, systems_static_data: static_data}} =
       WandererApp.Map.Routes.find(
         map_id,
@@ -223,8 +225,6 @@ defmodule WandererApp.Map.HomeRoutes do
     |> Enum.filter(& &1.has_connection)
     |> Enum.map(&entry(&1, static_by_system, depths))
     |> Enum.reject(&is_nil/1)
-    |> Enum.sort_by(&{&1.jumps, &1.holes || 99})
-    |> Enum.take(1)
     |> Enum.map(&Map.put(&1, :hub_name, hub_name))
   end
 

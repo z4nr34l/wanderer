@@ -130,7 +130,7 @@ defmodule WandererApp.Map.HomeRoutesTest do
   end
 
   describe "format_message/2" do
-    test "one line per hub, with what the route flies through and what is left" do
+    test "one line per mouth, with the nearest hub and what is left behind it" do
       entries = [
         %{
           hub_name: "Jita",
@@ -160,9 +160,9 @@ defmodule WandererApp.Map.HomeRoutesTest do
 
       assert HomeRoutes.format_message("J164751", %{home: entries, unlinked: []}) == """
              **Way home to J164751**
-             Jita: 5J via Amarr (high sec only, then 1 hole)
-             Rens: 7J via Hek (then 2 holes)
-             Dodixie: 9J via Villore (low/null only, then 3 holes)\
+             Amarr: 5J from Jita (high sec only, then 1 hole)
+             Hek: 7J from Rens (then 2 holes)
+             Villore: 9J from Dodixie (low/null only, then 3 holes)\
              """
     end
 
@@ -189,7 +189,7 @@ defmodule WandererApp.Map.HomeRoutesTest do
              Nothing on the map leads home yet.
 
              Mouths not joined to home on the map yet:
-             Jita: 1J via Perimeter (high sec only)\
+             Perimeter: 1J from Jita (high sec only)\
              """
     end
   end
