@@ -947,7 +947,7 @@ defmodule WandererAppWeb.MapsLive do
   defp discord_error(:no_home_system), do: "Pick a home system first."
 
   defp discord_error(:no_routes),
-    do: "Nothing to say: no hole on the map leads back to the home system yet."
+    do: "Nothing to say: the map has no k-space system with a hole in it."
 
   defp discord_error(:discord_refused), do: "Discord refused the message - check the URL."
   defp discord_error(:discord_unreachable), do: "Could not reach Discord."

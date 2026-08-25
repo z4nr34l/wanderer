@@ -105,7 +105,7 @@ defmodule WandererApp.Map.HomeRoutesTest do
   end
 
   describe "ways_home/3" do
-    test "keeps the mouths that lead home and drops the ones that do not" do
+    test "keeps the mouths that lead home apart from the ones that do not" do
       systems = [system(@jita), system(@amarr), system(@hole), system(@deeper_hole)]
 
       connections = [
@@ -116,14 +116,15 @@ defmodule WandererApp.Map.HomeRoutesTest do
         connection(@amarr, 31_000_009)
       ]
 
-      assert {[@jita], depths} = HomeRoutes.ways_home(systems, connections, @hole)
+      assert {[@jita], [@amarr], depths} = HomeRoutes.ways_home(systems, connections, @hole)
       assert depths[@jita] == 2
+      refute Map.has_key?(depths, @amarr)
     end
 
-    test "a chain with no k-space mouth at all is no way home" do
+    test "a chain with no k-space mouth at all has neither" do
       systems = [system(@hole), system(@deeper_hole)]
 
-      assert {[], _depths} =
+      assert {[], [], _depths} =
                HomeRoutes.ways_home(systems, [connection(@hole, @deeper_hole)], @hole)
     end
   end
@@ -157,7 +158,7 @@ defmodule WandererApp.Map.HomeRoutesTest do
         }
       ]
 
-      assert HomeRoutes.format_message("J164751", entries) == """
+      assert HomeRoutes.format_message("J164751", %{home: entries, unlinked: []}) == """
              **Way home to J164751**
              Jita: 5J via Amarr (high sec only, then 1 hole)
              Rens: 7J via Hek (then 2 holes)
@@ -165,8 +166,31 @@ defmodule WandererApp.Map.HomeRoutesTest do
              """
     end
 
-    test "says nothing when there is nowhere to go" do
-      refute HomeRoutes.format_message("J164751", [])
+    test "says nothing when the map has no mouth at all" do
+      refute HomeRoutes.format_message("J164751", %{home: [], unlinked: []})
+    end
+
+    test "a mouth nobody has joined to home is still worth naming, but kept apart" do
+      unlinked = [
+        %{
+          hub_name: "Jita",
+          solar_system_id: @jita,
+          name: "Perimeter",
+          jumps: 1,
+          holes: nil,
+          security: :high
+        }
+      ]
+
+      message = HomeRoutes.format_message("J164751", %{home: [], unlinked: unlinked})
+
+      assert message == """
+             **Way home to J164751**
+             Nothing on the map leads home yet.
+
+             Mouths not joined to home on the map yet:
+             Jita: 1J via Perimeter (high sec only)\
+             """
     end
   end
 

@@ -29,7 +29,7 @@ defmodule WandererApp.Map.HomeRoutes do
           solar_system_id: integer(),
           name: String.t(),
           jumps: non_neg_integer(),
-          holes: non_neg_integer(),
+          holes: non_neg_integer() | nil,
           security: :high | :low | :mixed
         }
 
@@ -37,7 +37,7 @@ defmodule WandererApp.Map.HomeRoutes do
   The best way home from each of the map's hubs, nearest first.
   """
   @spec build(String.t(), [integer()], integer(), pos_integer()) ::
-          {:ok, [entry()]} | {:error, term()}
+          {:ok, %{home: [entry()], unlinked: [entry()]}} | {:error, term()}
   def build(map_id, hub_ids, home_solar_system_id, limit \\ @limit)
 
   def build(map_id, hub_ids, home_solar_system_id, limit)
@@ -47,19 +47,13 @@ defmodule WandererApp.Map.HomeRoutes do
     # anyone has the map open
     with {:ok, systems} <- WandererApp.MapSystemRepo.get_visible_by_map(map_id),
          {:ok, connections} <- WandererApp.MapConnectionRepo.get_by_map(map_id) do
-      case ways_home(systems, connections, home_solar_system_id) do
-        {[], _depths} ->
-          {:ok, []}
+      {linked, unlinked, depths} = ways_home(systems, connections, home_solar_system_id)
 
-        {reachable, depths} ->
-          entries =
-            hub_ids
-            |> Enum.flat_map(&best_route(map_id, &1, reachable, depths))
-            |> Enum.sort_by(&{&1.jumps, &1.holes})
-            |> Enum.take(limit)
-
-          {:ok, entries}
-      end
+      {:ok,
+       %{
+         home: routes_for(map_id, hub_ids, linked, depths, limit),
+         unlinked: routes_for(map_id, hub_ids, unlinked, depths, limit)
+       }}
     end
   end
 
@@ -67,22 +61,23 @@ defmodule WandererApp.Map.HomeRoutes do
   def build(_map_id, _hubs, _home, _limit), do: {:error, :no_home_system}
 
   @doc """
-  The mouths that are actually a way home, and how many holes lie behind each.
+  The mouths of the map, split by whether the map knows a way from them to home.
 
-  A mouth on a piece of chain nobody has joined to home is not a way home however close it is to
-  a hub, and leaving it in is what makes a message look plausible and be wrong.
+  A mouth on a piece of chain nobody has joined to home is still a mouth worth knowing about -
+  it may be today's way in, half scanned - but it is not the same claim as a route home, so the
+  two are kept apart rather than mixed.
   """
   @spec ways_home([map()], [map()], integer()) ::
-          {[integer()], %{integer() => non_neg_integer()}}
+          {[integer()], [integer()], %{integer() => non_neg_integer()}}
   def ways_home(systems, connections, home_solar_system_id) do
     depths = hole_depths(connections, home_solar_system_id)
 
-    reachable =
+    {linked, unlinked} =
       systems
       |> entrances(connections)
-      |> Enum.filter(&Map.has_key?(depths, &1))
+      |> Enum.split_with(&Map.has_key?(depths, &1))
 
-    {reachable, depths}
+    {linked, unlinked, depths}
   end
 
   @doc """
@@ -161,14 +156,26 @@ defmodule WandererApp.Map.HomeRoutes do
   @doc """
   The Discord message for a set of routes, or nil when there is nothing worth saying.
   """
-  @spec format_message(String.t(), [entry()]) :: String.t() | nil
-  def format_message(_home_name, []), do: nil
+  @spec format_message(String.t(), %{home: [entry()], unlinked: [entry()]}) :: String.t() | nil
+  def format_message(home_name, %{home: [], unlinked: []}), do: nil
 
-  def format_message(home_name, entries) do
-    lines = Enum.map(entries, &"#{&1.hub_name}: #{&1.jumps}J via #{&1.name}#{note(&1)}")
+  def format_message(home_name, %{home: home_entries, unlinked: unlinked}) do
+    home_lines =
+      case home_entries do
+        [] -> ["Nothing on the map leads home yet."]
+        entries -> Enum.map(entries, &line/1)
+      end
 
-    Enum.join(["**Way home to #{home_name}**" | lines], "\n")
+    unlinked_lines =
+      case unlinked do
+        [] -> []
+        entries -> ["", "Mouths not joined to home on the map yet:" | Enum.map(entries, &line/1)]
+      end
+
+    Enum.join(["**Way home to #{home_name}**"] ++ home_lines ++ unlinked_lines, "\n")
   end
+
+  defp line(entry), do: "#{entry.hub_name}: #{entry.jumps}J via #{entry.name}#{note(entry)}"
 
   defp note(entry) do
     case Enum.reject([security_note(entry.security), holes_note(entry.holes)], &is_nil/1) do
@@ -184,6 +191,15 @@ defmodule WandererApp.Map.HomeRoutes do
   defp holes_note(nil), do: nil
   defp holes_note(1), do: "then 1 hole"
   defp holes_note(holes), do: "then #{holes} holes"
+
+  defp routes_for(_map_id, _hub_ids, [], _depths, _limit), do: []
+
+  defp routes_for(map_id, hub_ids, entrance_ids, depths, limit) do
+    hub_ids
+    |> Enum.flat_map(&best_route(map_id, &1, entrance_ids, depths))
+    |> Enum.sort_by(&{&1.jumps, &1.holes || 99})
+    |> Enum.take(limit)
+  end
 
   # one line per hub: the mouth that is fewest gates away, and how many holes are left after it
   defp best_route(map_id, hub_id, entrance_ids, depths) do
@@ -207,7 +223,7 @@ defmodule WandererApp.Map.HomeRoutes do
     |> Enum.filter(& &1.has_connection)
     |> Enum.map(&entry(&1, static_by_system, depths))
     |> Enum.reject(&is_nil/1)
-    |> Enum.sort_by(&{&1.jumps, &1.holes})
+    |> Enum.sort_by(&{&1.jumps, &1.holes || 99})
     |> Enum.take(1)
     |> Enum.map(&Map.put(&1, :hub_name, hub_name))
   end

@@ -95,9 +95,9 @@ defmodule WandererApp.Map.HomeRoutesNotifier do
          {:ok, url} <- webhook(map),
          {:ok, home_id} <- home_system(map),
          {:ok, hub_ids} <- hubs(map),
-         {:ok, entries} <- HomeRoutes.build(map_id, hub_ids, home_id),
+         {:ok, routes} <- HomeRoutes.build(map_id, hub_ids, home_id),
          {:ok, home_name} <- system_name(home_id, :home_system_unknown),
-         message when is_binary(message) <- HomeRoutes.format_message(home_name, entries) do
+         message when is_binary(message) <- HomeRoutes.format_message(home_name, routes) do
       case post(url, message) do
         :ok -> {:ok, :erlang.phash2(message)}
         {:error, reason} -> {:error, reason}
