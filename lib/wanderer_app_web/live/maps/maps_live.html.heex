@@ -216,6 +216,25 @@
       field={f[:only_tracked_characters]}
       label="Allow only tracked characters"
     />
+    <label class="text-sm">Home system</label>
+    <.live_select
+      field={f[:home_solar_system_id]}
+      debounce={250}
+      update_min_len={2}
+      mode={:single}
+      options={@home_systems}
+      placeholder="The system the chain is measured from"
+    />
+    <.input
+      type="text"
+      field={f[:discord_webhook_url]}
+      label="Discord webhook"
+      placeholder="https://discord.com/api/webhooks/..."
+    />
+    <p class="text-xs text-stone-400 -mt-1">
+      Ten minutes after the map stops changing, the shortest gate routes from the home system to
+      the chain are posted here.
+    </p>
     <.input
       :if={@live_action == :create}
       type="checkbox"

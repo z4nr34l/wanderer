@@ -70,6 +70,9 @@ defmodule WandererApp.ExternalEvents do
         %{map_id: map_id, event_type: event_type}
       )
 
+      # a change of shape restarts the quiet period before the chain gets announced to Discord
+      WandererApp.Map.HomeRoutesNotifier.map_changed(map_id, event_type)
+
       # Check if MapEventRelay is alive before sending
       if Process.whereis(MapEventRelay) do
         # Use cast for async delivery to avoid blocking the caller

@@ -125,7 +125,9 @@ defmodule WandererApp.Api.Map do
         :scopes,
         :only_tracked_characters,
         :owner_id,
-        :sse_enabled
+        :sse_enabled,
+        :discord_webhook_url,
+        :home_solar_system_id
       ]
 
       primary?(true)
@@ -150,7 +152,9 @@ defmodule WandererApp.Api.Map do
         :scopes,
         :only_tracked_characters,
         :owner_id,
-        :sse_enabled
+        :sse_enabled,
+        :discord_webhook_url,
+        :home_solar_system_id
       ]
 
       argument :owner_id_text_input, :string, allow_nil?: true
@@ -391,6 +395,17 @@ defmodule WandererApp.Api.Map do
 
     attribute :options, :string do
       allow_nil? true
+    end
+
+    attribute :discord_webhook_url, :string do
+      allow_nil?(true)
+      default(nil)
+      constraints(max_length: 500)
+    end
+
+    attribute :home_solar_system_id, :integer do
+      allow_nil?(true)
+      default(nil)
     end
 
     attribute :webhooks_enabled, :boolean do

@@ -30,6 +30,7 @@ defmodule WandererAppWeb.MapsLive do
        map_subscriptions_enabled?: WandererApp.Env.map_subscriptions_enabled?(),
        restrict_maps_creation?: WandererApp.Env.restrict_maps_creation?(),
        acls: [],
+       home_systems: [],
        location: nil,
        is_version_valid?: false
      )
@@ -136,6 +137,8 @@ defmodule WandererAppWeb.MapsLive do
           :form,
           map |> AshPhoenix.Form.for_update(:update, forms: [auto?: true])
         )
+        # the picker needs the option behind the stored id, or it shows an empty box
+        |> assign(:home_systems, home_system_options(map.home_solar_system_id))
         |> load_access_lists()
 
       _ ->
@@ -254,13 +257,20 @@ defmodule WandererAppWeb.MapsLive do
   @impl true
   def handle_event(
         "live_select_change",
-        %{"id" => id, "text" => _text} = _change_event,
+        %{"id" => id, "text" => text} = _change_event,
         socket
       ) do
-    # This handler is for ACL live_select component
-    send_update(LiveSelect.Component, options: socket.assigns.acls, id: id)
+    if String.contains?(id, "home_solar_system_id") do
+      home_systems = search_systems(text)
 
-    {:noreply, socket}
+      send_update(LiveSelect.Component, options: home_systems, id: id)
+
+      {:noreply, socket |> assign(home_systems: home_systems)}
+    else
+      send_update(LiveSelect.Component, options: socket.assigns.acls, id: id)
+
+      {:noreply, socket}
+    end
   end
 
   def handle_event("validate", %{"form" => form} = _params, socket) do
@@ -874,5 +884,32 @@ defmodule WandererAppWeb.MapsLive do
       scope when is_atom(scope) -> Atom.to_string(scope)
       scope when is_binary(scope) -> scope
     end)
+  end
+
+  # the home system is picked by name and stored as the id the routes are calculated from
+  defp search_systems(text) when is_binary(text) and byte_size(text) > 1 do
+    %{name: text}
+    |> WandererApp.Api.MapSolarSystem.find_by_name!()
+    |> Enum.take(20)
+    |> Enum.map(fn system ->
+      %{
+        label: "#{system.solar_system_name} (#{system.region_name})",
+        value: system.solar_system_id
+      }
+    end)
+  end
+
+  defp search_systems(_text), do: []
+
+  defp home_system_options(nil), do: []
+
+  defp home_system_options(solar_system_id) do
+    case WandererApp.CachedInfo.get_system_static_info(solar_system_id) do
+      {:ok, %{solar_system_name: name, region_name: region}} ->
+        [%{label: "#{name} (#{region})", value: solar_system_id}]
+
+      _ ->
+        []
+    end
   end
 end
