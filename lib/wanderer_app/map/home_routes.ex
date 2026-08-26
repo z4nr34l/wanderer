@@ -18,11 +18,6 @@ defmodule WandererApp.Map.HomeRoutes do
 
   @limit 5
 
-  # Thera and Turnur are left out, which is how this map's routes are set up. They also come and
-  # go on their own, so counting them makes the same chain read differently from one run to the
-  # next and every nudge produce a new message.
-  @route_settings %{include_thera: false}
-
   @type entry :: %{
           hub_name: String.t(),
           entrance_name: String.t(),
@@ -34,13 +29,16 @@ defmodule WandererApp.Map.HomeRoutes do
   The way home from each hub, nearest first: the whole trip in jumps, and the system the chain
   is entered from.
   """
-  @spec build(String.t(), [integer()], integer(), pos_integer()) ::
+  @spec build(String.t(), [integer()], integer(), keyword()) ::
           {:ok, [entry()]} | {:error, term()}
-  def build(map_id, hub_ids, home_solar_system_id, limit \\ @limit)
+  def build(map_id, hub_ids, home_solar_system_id, opts \\ [])
 
-  def build(map_id, hub_ids, home_solar_system_id, limit)
+  def build(map_id, hub_ids, home_solar_system_id, opts)
       when is_binary(map_id) and is_list(hub_ids) and hub_ids != [] and
              is_integer(home_solar_system_id) do
+    limit = Keyword.get(opts, :limit, @limit)
+    route_settings = %{include_thera: Keyword.get(opts, :include_thera, true)}
+
     hubs =
       hub_ids
       |> Enum.reject(&(&1 == home_solar_system_id))
@@ -56,7 +54,7 @@ defmodule WandererApp.Map.HomeRoutes do
             map_id,
             hubs,
             to_string(home_solar_system_id),
-            @route_settings,
+            route_settings,
             false
           )
 
@@ -78,8 +76,8 @@ defmodule WandererApp.Map.HomeRoutes do
     end
   end
 
-  def build(_map_id, [], _home, _limit), do: {:error, :no_hubs}
-  def build(_map_id, _hubs, _home, _limit), do: {:error, :no_home_system}
+  def build(_map_id, [], _home, _opts), do: {:error, :no_hubs}
+  def build(_map_id, _hubs, _home, _opts), do: {:error, :no_home_system}
 
   @doc """
   Splits a route that starts inside the chain into the system the chain is entered from and the

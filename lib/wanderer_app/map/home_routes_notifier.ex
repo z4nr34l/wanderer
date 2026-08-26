@@ -118,7 +118,8 @@ defmodule WandererApp.Map.HomeRoutesNotifier do
          {:ok, _url} <- webhook(map),
          {:ok, home_id} <- home_system(map),
          {:ok, hub_ids} <- hubs(map),
-         {:ok, routes} <- HomeRoutes.build(map_id, hub_ids, home_id),
+         {:ok, routes} <-
+           HomeRoutes.build(map_id, hub_ids, home_id, include_thera: map.discord_include_thera),
          {:ok, home_name} <- system_name(home_id, :home_system_unknown),
          message when is_binary(message) <- HomeRoutes.format_message(home_name, routes) do
       {:ok, map, message}
