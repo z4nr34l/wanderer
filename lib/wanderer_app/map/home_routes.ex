@@ -18,9 +18,10 @@ defmodule WandererApp.Map.HomeRoutes do
 
   @limit 5
 
-  # Thera and Turnur are a real way home when one is up, so they count - the same as the routes
-  # widget counts them.
-  @route_settings %{include_thera: true}
+  # Thera and Turnur are left out, which is how this map's routes are set up. They also come and
+  # go on their own, so counting them makes the same chain read differently from one run to the
+  # next and every nudge produce a new message.
+  @route_settings %{include_thera: false}
 
   @type entry :: %{
           hub_name: String.t(),
