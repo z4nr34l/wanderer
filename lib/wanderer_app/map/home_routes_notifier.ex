@@ -96,8 +96,8 @@ defmodule WandererApp.Map.HomeRoutesNotifier do
       digest = :erlang.phash2(message)
 
       if digest == map.discord_last_digest do
-        Logger.debug(fn ->
-          "[HomeRoutes] #{map_id}: the way home has not changed, saying nothing"
+        Logger.info(fn ->
+          "[HomeRoutes] #{map_id}: the way home reads the same as last time (#{digest}), saying nothing"
         end)
 
         :skipped
@@ -130,7 +130,7 @@ defmodule WandererApp.Map.HomeRoutesNotifier do
         remember(map, digest)
 
         Logger.info(fn ->
-          "[HomeRoutes] #{map.id}: posted the way home (#{length(String.split(message, "\n")) - 1} routes)"
+          "[HomeRoutes] #{map.id}: posted the way home, #{map.discord_last_digest} -> #{digest}"
         end)
 
         {:ok, digest}

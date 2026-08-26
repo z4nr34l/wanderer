@@ -59,7 +59,8 @@ defmodule WandererApp.Map.HomeRoutes do
           |> Enum.filter(& &1.has_connection)
           |> Enum.map(&entry(&1, static_by_system))
           |> Enum.reject(&is_nil/1)
-          |> Enum.sort_by(& &1.jumps)
+          # ties settled by name, so two runs of the same chain read the same way round
+          |> Enum.sort_by(&{&1.jumps, &1.hub_name})
           |> Enum.take(limit)
 
         {:ok, entries}
