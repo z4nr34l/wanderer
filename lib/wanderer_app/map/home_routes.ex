@@ -18,6 +18,11 @@ defmodule WandererApp.Map.HomeRoutes do
 
   @limit 5
 
+  # Thera and Turnur holes are somebody else's chain and they come and go on their own, which
+  # would make the same map read differently from one hour to the next. The way home is the map's
+  # own connections and the gates between them.
+  @route_settings %{include_thera: false}
+
   @type entry :: %{
           hub_name: String.t(),
           entrance_name: String.t(),
@@ -47,7 +52,13 @@ defmodule WandererApp.Map.HomeRoutes do
 
       hubs ->
         {:ok, %{routes: routes, systems_static_data: static_data}} =
-          WandererApp.Map.Routes.find(map_id, hubs, to_string(home_solar_system_id), %{}, false)
+          WandererApp.Map.Routes.find(
+            map_id,
+            hubs,
+            to_string(home_solar_system_id),
+            @route_settings,
+            false
+          )
 
         static_by_system =
           static_data

@@ -42,7 +42,7 @@ defmodule WandererApp.Map.HomeRoutesNotifier do
   @spec map_changed(String.t(), atom()) :: :ok
   def map_changed(map_id, event_type) when is_binary(map_id) do
     if event_type in @map_change_events and not is_nil(Process.whereis(__MODULE__)) do
-      GenServer.cast(__MODULE__, {:changed, map_id})
+      GenServer.cast(__MODULE__, {:changed, map_id, event_type})
     end
 
     :ok
@@ -54,10 +54,16 @@ defmodule WandererApp.Map.HomeRoutesNotifier do
   def init(_opts), do: {:ok, %{timers: %{}}}
 
   @impl true
-  def handle_cast({:changed, map_id}, %{timers: timers} = state) do
+  def handle_cast({:changed, map_id, event_type}, %{timers: timers} = state) do
     case Map.get(timers, map_id) do
-      nil -> :ok
-      timer -> Process.cancel_timer(timer)
+      nil ->
+        # only the first change of a burst is worth a line; the rest just push the clock back
+        Logger.info(fn ->
+          "[HomeRoutes] #{map_id}: #{event_type} started the quiet period"
+        end)
+
+      timer ->
+        Process.cancel_timer(timer)
     end
 
     timer = Process.send_after(self(), {:quiet, map_id}, quiet_period())
