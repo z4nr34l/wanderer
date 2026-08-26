@@ -10,11 +10,17 @@ import { isWormholeSpace } from '@/hooks/Mapper/components/map/helpers/isWormhol
 export const getBackgroundClass = (systemClass: number, security: string) => {
   if (isZarzakhSpace(systemClass)) {
     return SYSTEM_CLASS_BACKGROUND_CLASSES[systemClass];
-  } else if (isKnownSpace(systemClass)) {
-    return SECURITY_BACKGROUND_CLASSES[security];
-  } else if (isWormholeSpace(systemClass)) {
-    return WORMHOLE_CLASS_BACKGROUND_CLASSES[systemClass];
-  } else {
-    return SYSTEM_CLASS_BACKGROUND_CLASSES[systemClass];
   }
+
+  if (isKnownSpace(systemClass)) {
+    return SECURITY_BACKGROUND_CLASSES[security];
+  }
+
+  if (isWormholeSpace(systemClass)) {
+    return WORMHOLE_CLASS_BACKGROUND_CLASSES[systemClass];
+  }
+
+  // Syndicate and the other NPC pockets carry no class of their own, and a system with no
+  // colour is a system nobody can see on a route - their security still says what they are
+  return SYSTEM_CLASS_BACKGROUND_CLASSES[systemClass] || SECURITY_BACKGROUND_CLASSES[security] || '';
 };
