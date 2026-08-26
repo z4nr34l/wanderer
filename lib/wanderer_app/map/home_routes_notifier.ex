@@ -4,8 +4,12 @@ defmodule WandererApp.Map.HomeRoutesNotifier do
 
   Scanning a chain is a burst of changes, and a message per change would be noise. The message
   goes out once the map has been quiet for ten minutes, which in practice is ten minutes after
-  whoever was scanning stopped. A run that would say exactly what the last one said is dropped,
-  so a chain that has not really moved does not get announced twice.
+  whoever was scanning stopped.
+
+  Plenty of things nudge a map without changing the way home - housekeeping, a restart, a
+  connection being touched - so what decides whether anything is posted is the message itself:
+  it is kept with the map, and a run that would repeat it says nothing. Keeping it with the map
+  rather than in memory is what stops a restart from announcing the same chain again.
   """
 
   use GenServer
@@ -47,7 +51,7 @@ defmodule WandererApp.Map.HomeRoutesNotifier do
   def map_changed(_map_id, _event_type), do: :ok
 
   @impl true
-  def init(_opts), do: {:ok, %{timers: %{}, digests: %{}}}
+  def init(_opts), do: {:ok, %{timers: %{}}}
 
   @impl true
   def handle_cast({:changed, map_id}, %{timers: timers} = state) do
@@ -62,23 +66,11 @@ defmodule WandererApp.Map.HomeRoutesNotifier do
   end
 
   @impl true
-  def handle_info({:quiet, map_id}, %{timers: timers, digests: digests} = state) do
-    state = %{state | timers: Map.delete(timers, map_id)}
-    notifier = self()
+  def handle_info({:quiet, map_id}, %{timers: timers} = state) do
+    Task.start(fn -> announce(map_id) end)
 
-    Task.start(fn ->
-      case announce(map_id, Map.get(digests, map_id)) do
-        {:sent, digest} -> send(notifier, {:sent, map_id, digest})
-        :skipped -> :ok
-      end
-    end)
-
-    {:noreply, state}
+    {:noreply, %{state | timers: Map.delete(timers, map_id)}}
   end
-
-  @impl true
-  def handle_info({:sent, map_id, digest}, %{digests: digests} = state),
-    do: {:noreply, %{state | digests: Map.put(digests, map_id, digest)}}
 
   @impl true
   def handle_info(_message, state), do: {:noreply, state}
@@ -91,17 +83,39 @@ defmodule WandererApp.Map.HomeRoutesNotifier do
   """
   @spec deliver(String.t()) :: {:ok, non_neg_integer()} | {:error, atom()}
   def deliver(map_id) when is_binary(map_id) do
+    with {:ok, map, message} <- message_for(map_id),
+         {:ok, url} <- webhook(map) do
+      post_and_remember(map, url, message)
+    end
+  end
+
+  # the timed run only speaks when it has something new to say
+  defp announce(map_id) do
+    with {:ok, map, message} <- message_for(map_id),
+         {:ok, url} <- webhook(map) do
+      digest = :erlang.phash2(message)
+
+      if digest == map.discord_last_digest do
+        Logger.debug(fn ->
+          "[HomeRoutes] #{map_id}: the way home has not changed, saying nothing"
+        end)
+
+        :skipped
+      else
+        post_and_remember(map, url, message)
+      end
+    end
+  end
+
+  defp message_for(map_id) do
     with {:ok, map} <- map(map_id),
-         {:ok, url} <- webhook(map),
+         {:ok, _url} <- webhook(map),
          {:ok, home_id} <- home_system(map),
          {:ok, hub_ids} <- hubs(map),
          {:ok, routes} <- HomeRoutes.build(map_id, hub_ids, home_id),
          {:ok, home_name} <- system_name(home_id, :home_system_unknown),
          message when is_binary(message) <- HomeRoutes.format_message(home_name, routes) do
-      case post(url, message) do
-        :ok -> {:ok, :erlang.phash2(message)}
-        {:error, reason} -> {:error, reason}
-      end
+      {:ok, map, message}
     else
       nil -> {:error, :no_routes}
       {:error, reason} -> {:error, reason}
@@ -109,11 +123,34 @@ defmodule WandererApp.Map.HomeRoutesNotifier do
     end
   end
 
-  defp announce(map_id, last_digest) do
-    case deliver(map_id) do
-      {:ok, digest} when digest == last_digest -> :skipped
-      {:ok, digest} -> {:sent, digest}
-      {:error, _reason} -> :skipped
+  defp post_and_remember(map, url, message) do
+    case post(url, message) do
+      :ok ->
+        digest = :erlang.phash2(message)
+        remember(map, digest)
+
+        Logger.info(fn ->
+          "[HomeRoutes] #{map.id}: posted the way home (#{length(String.split(message, "\n")) - 1} routes)"
+        end)
+
+        {:ok, digest}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp remember(map, digest) do
+    case WandererApp.Api.Map.update_discord_digest(map, %{discord_last_digest: digest}) do
+      {:ok, _map} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning(fn ->
+          "[HomeRoutes] could not store the message digest: #{inspect(reason)}"
+        end)
+
+        :ok
     end
   end
 

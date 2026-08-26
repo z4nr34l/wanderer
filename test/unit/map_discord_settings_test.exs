@@ -30,6 +30,15 @@ defmodule WandererApp.Api.MapDiscordSettingsTest do
     assert updated.home_solar_system_id == @jita
   end
 
+  describe "the stored digest" do
+    test "starts empty and can be written", %{map: map} do
+      assert is_nil(map.discord_last_digest)
+
+      assert {:ok, updated} = MapResource.update_discord_digest(map, %{discord_last_digest: 42})
+      assert updated.discord_last_digest == 42
+    end
+  end
+
   describe "deliver/1" do
     test "says what is missing rather than posting nothing", %{map: map} do
       assert {:error, :no_webhook} = WandererApp.Map.HomeRoutesNotifier.deliver(map.id)

@@ -56,6 +56,7 @@ defmodule WandererApp.Api.Map do
     define(:update_hubs, action: :update_hubs)
     define(:update_options, action: :update_options)
     define(:update_discord_settings, action: :update_discord_settings)
+    define(:update_discord_digest, action: :update_discord_digest)
     define(:update_system_labels, action: :update_system_labels)
     define(:assign_owner, action: :assign_owner)
     define(:mark_as_deleted, action: :mark_as_deleted)
@@ -203,6 +204,11 @@ defmodule WandererApp.Api.Map do
 
     update :update_discord_settings do
       accept [:discord_webhook_url, :home_solar_system_id]
+      require_atomic? false
+    end
+
+    update :update_discord_digest do
+      accept [:discord_last_digest]
       require_atomic? false
     end
 
@@ -410,6 +416,12 @@ defmodule WandererApp.Api.Map do
     end
 
     attribute :home_solar_system_id, :integer do
+      allow_nil?(true)
+      default(nil)
+    end
+
+    # what the last announcement said, so a restart does not repeat it
+    attribute :discord_last_digest, :integer do
       allow_nil?(true)
       default(nil)
     end
