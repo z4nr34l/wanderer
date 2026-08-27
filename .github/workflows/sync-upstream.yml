@@ -70,7 +70,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BASE_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
-          state=$(gh pr view "$SYNC_BRANCH" --json state --jq .state 2>/dev/null || true)
+          # in a fork gh talks to the parent repository unless it is told otherwise, and the
+          # workflow token has no rights there - the pull request belongs here
+          state=$(gh pr view "$SYNC_BRANCH" --repo "$GITHUB_REPOSITORY" --json state --jq .state 2>/dev/null || true)
 
           if [ "$state" = "OPEN" ]; then
             echo "PR for $SYNC_BRANCH is already open - force push above refreshed it."
@@ -80,6 +82,7 @@ jobs:
           commits=$(git log --oneline --no-merges "HEAD..upstream/$UPSTREAM_BRANCH" | head -50)
 
           gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
             --base "$BASE_BRANCH" \
             --head "$SYNC_BRANCH" \
             --title "Sync upstream $UPSTREAM_BRANCH ($(date -u +%Y-%m-%d))" \
