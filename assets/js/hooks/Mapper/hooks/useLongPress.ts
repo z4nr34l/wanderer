@@ -51,7 +51,9 @@ export interface LongPressHandlers {
  *
  * Mouse and pen pointers are ignored entirely, so desktop right-click keeps working unchanged.
  * The hold is cancelled if the finger moves past `moveTolerance` px (a real drag or pan) or is
- * lifted early (an ordinary tap).
+ * lifted early (an ordinary tap). A second pointer landing while one is already down (a pinch,
+ * or a two-finger pan) cancels the hold too and blocks a new one from starting until every
+ * pointer has lifted, so a pinch can never open a context menu.
  *
  * Once a press fires, lifting the finger still makes the browser synthesize a mousedown,
  * mouseup and click on whatever was under it (that's how touch has worked with mouse-only code
@@ -80,6 +82,11 @@ export const useLongPress = (
     tracking: false,
     // true from the moment a press fires until the click it synthesizes is swallowed
     firedRecently: false,
+    // every pointer currently down, touch or not; a second one down means a pinch or a
+    // multi-finger pan rather than a hold, until every finger lifts again
+    activePointers: new Set<number>(),
+    // the single pointer a hold is being timed for, if any
+    trackedPointerId: null as number | null,
   });
 
   const clearTimer = useCallback(() => {
@@ -99,6 +106,17 @@ export const useLongPress = (
       // not, so a plain mouse click on a hybrid device can never be swallowed by it
       state.current.firedRecently = false;
 
+      state.current.activePointers.add(event.pointerId);
+
+      // a second finger landing means this is a pinch or a multi-finger pan, not a hold; drop
+      // whatever was being timed and don't start timing this one either, until every pointer
+      // now down has lifted (see onPointerUp/onPointerCancel)
+      if (state.current.activePointers.size > 1) {
+        clearTimer();
+        state.current.trackedPointerId = null;
+        return;
+      }
+
       // the mouse and pen still have a real contextmenu event to fall back on
       if (event.pointerType !== 'touch') {
         return;
@@ -108,6 +126,7 @@ export const useLongPress = (
       state.current.startX = clientX;
       state.current.startY = clientY;
       state.current.tracking = true;
+      state.current.trackedPointerId = event.pointerId;
 
       state.current.timer = setTimeout(() => {
         // still down, and never moved past the tolerance, so this is a hold rather than a
@@ -130,12 +149,12 @@ export const useLongPress = (
         });
       }, delay);
     },
-    [delay, onLongPress],
+    [clearTimer, delay, onLongPress],
   );
 
   const onPointerMove = useCallback(
     (event: ReactPointerEvent) => {
-      if (!state.current.tracking) {
+      if (!state.current.tracking || event.pointerId !== state.current.trackedPointerId) {
         return;
       }
 
@@ -151,14 +170,36 @@ export const useLongPress = (
     [clearTimer, moveTolerance],
   );
 
-  const onPointerUp = useCallback(() => {
-    // lifted before the hold matured: an ordinary tap, let it click through as usual
-    clearTimer();
-  }, [clearTimer]);
+  const onPointerUp = useCallback(
+    (event: ReactPointerEvent) => {
+      state.current.activePointers.delete(event.pointerId);
 
-  const onPointerCancel = useCallback(() => {
-    clearTimer();
-  }, [clearTimer]);
+      // a different finger lifting (the other half of a pinch, say) doesn't affect whatever
+      // this one is or isn't timing
+      if (event.pointerId !== state.current.trackedPointerId) {
+        return;
+      }
+
+      // lifted before the hold matured: an ordinary tap, let it click through as usual
+      state.current.trackedPointerId = null;
+      clearTimer();
+    },
+    [clearTimer],
+  );
+
+  const onPointerCancel = useCallback(
+    (event: ReactPointerEvent) => {
+      state.current.activePointers.delete(event.pointerId);
+
+      if (event.pointerId !== state.current.trackedPointerId) {
+        return;
+      }
+
+      state.current.trackedPointerId = null;
+      clearTimer();
+    },
+    [clearTimer],
+  );
 
   const swallowIfJustFired = useCallback((event: ReactMouseEvent) => {
     if (state.current.firedRecently) {

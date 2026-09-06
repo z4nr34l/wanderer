@@ -35,9 +35,12 @@ const renderLongPress = (onLongPress: (event: LongPressEvent) => void, options?:
   };
 };
 
-const pointerEvent = (overrides: Partial<{ pointerType: string; clientX: number; clientY: number }> = {}) =>
+const pointerEvent = (
+  overrides: Partial<{ pointerType: string; pointerId: number; clientX: number; clientY: number }> = {},
+) =>
   ({
     pointerType: 'touch',
+    pointerId: 1,
     clientX: 0,
     clientY: 0,
     pageX: 0,
@@ -127,6 +130,59 @@ describe('useLongPress', () => {
     });
 
     expect(onLongPress).not.toHaveBeenCalled();
+  });
+
+  it('cancels the hold when a second finger lands, and does not fire when the first lifts either', () => {
+    const onLongPress = jest.fn();
+    const { handlers } = renderLongPress(onLongPress, { delay: 450 });
+
+    act(() => {
+      handlers.onPointerDown(pointerEvent({ pointerId: 1 }));
+      // a pinch or two-finger pan starting mid-hold
+      handlers.onPointerDown(pointerEvent({ pointerId: 2 }));
+      jest.advanceTimersByTime(450);
+    });
+    expect(onLongPress).not.toHaveBeenCalled();
+
+    act(() => {
+      handlers.onPointerUp(pointerEvent({ pointerId: 1 }));
+      jest.advanceTimersByTime(450);
+    });
+    expect(onLongPress).not.toHaveBeenCalled();
+  });
+
+  it('holds normally again once every pointer from an aborted multi-touch has lifted', () => {
+    const onLongPress = jest.fn();
+    const { handlers } = renderLongPress(onLongPress, { delay: 450 });
+
+    act(() => {
+      handlers.onPointerDown(pointerEvent({ pointerId: 1 }));
+      handlers.onPointerDown(pointerEvent({ pointerId: 2 }));
+      handlers.onPointerUp(pointerEvent({ pointerId: 1 }));
+      handlers.onPointerUp(pointerEvent({ pointerId: 2 }));
+    });
+
+    // a fresh, single-finger hold afterwards should work as usual
+    act(() => {
+      handlers.onPointerDown(pointerEvent({ pointerId: 3, clientX: 0, clientY: 0 }));
+      jest.advanceTimersByTime(450);
+    });
+    expect(onLongPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores a move from a pointer other than the one being tracked', () => {
+    const onLongPress = jest.fn();
+    const { handlers } = renderLongPress(onLongPress, { delay: 450, moveTolerance: 10 });
+
+    act(() => {
+      handlers.onPointerDown(pointerEvent({ pointerId: 1, clientX: 0, clientY: 0 }));
+      // a second finger that never registered a pointerdown here (e.g. started elsewhere)
+      // moving should not be able to cancel pointer 1's hold
+      handlers.onPointerMove(pointerEvent({ pointerId: 2, clientX: 100, clientY: 100 }));
+      jest.advanceTimersByTime(450);
+    });
+
+    expect(onLongPress).toHaveBeenCalledTimes(1);
   });
 
   it('cancels the hold on pointercancel', () => {

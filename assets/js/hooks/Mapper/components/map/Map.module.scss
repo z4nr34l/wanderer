@@ -10,13 +10,17 @@
   }
 
   // iOS shows its own copy/lookup callout on a long-press unless an element opts out, and it
-  // would otherwise win the race against the long-press context menu below
-  :global {
-    .react-flow__node,
-    .react-flow__edge {
-      -webkit-touch-callout: none;
-      -webkit-user-select: none;
-      user-select: none;
+  // would otherwise win the race against the long-press context menu below. Scoped to coarse,
+  // hover-less pointers only, so desktop keeps being able to select system names and counters
+  // with the mouse.
+  @media (hover: none) and (pointer: coarse) {
+    :global {
+      .react-flow__node,
+      .react-flow__edge {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
     }
   }
 }

@@ -210,7 +210,12 @@ const MapComp = ({
         return;
       }
 
-      // anywhere else on the pane counts as empty space, same as right-clicking the background
+      // only empty pane background counts as "right-clicked the map"; the MiniMap, Controls
+      // and any other panel sitting on top of the canvas should not open this menu
+      if (!target.closest('.react-flow__pane')) {
+        return;
+      }
+
       handleRootContext(event as unknown as MouseEvent<HTMLDivElement>);
     },
     [edges, getNodes, handleConnectionContext, handleRootContext, onSelectionContextMenu, onSystemContextMenu],
