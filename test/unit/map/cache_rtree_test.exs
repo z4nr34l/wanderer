@@ -431,6 +431,146 @@ defmodule WandererApp.Map.CacheRTreeTest do
     end
   end
 
+  describe "self-healing after cache eviction" do
+    # Simulates the Nebulex generational GC dropping the whole rtree: the
+    # leaves/grid keys go missing (Cache.get returns nil) even though the map
+    # itself is very much alive and has systems on it.
+    #
+    # Cleanup is registered via on_exit (rather than left as a trailing call
+    # in each test body) so it still runs when an assertion fails partway
+    # through.
+    defp seed_map_with_systems(map_id, systems) do
+      WandererApp.Map.new(%{
+        id: map_id,
+        name: "test map #{map_id}",
+        scope: :none,
+        owner_id: "owner_#{map_id}",
+        acls: [],
+        hubs: []
+      })
+
+      Enum.each(systems, fn system -> WandererApp.Map.add_system(map_id, system) end)
+
+      ExUnit.Callbacks.on_exit(fn -> Cachex.del(:map_cache, map_id) end)
+    end
+
+    defp evict_rtree_cache(name) do
+      WandererApp.Cache.delete("rtree:#{name}:leaves")
+      WandererApp.Cache.delete("rtree:#{name}:grid")
+    end
+
+    defp init_and_register_tree(name) do
+      CacheRTree.init_tree(name)
+      ExUnit.Callbacks.on_exit(fn -> CacheRTree.clear_tree(name) end)
+    end
+
+    test "rebuilds from live map systems when the cache generation is lost" do
+      map_id = "map_#{:rand.uniform(1_000_000)}"
+      name = "rtree_#{map_id}"
+
+      seed_map_with_systems(map_id, [
+        %{solar_system_id: 31_000_016, visible: true, position_x: 1575, position_y: -1935},
+        %{solar_system_id: 31_001_269, visible: true, position_x: 100, position_y: 100}
+      ])
+
+      init_and_register_tree(name)
+      # Cache holds nothing useful yet for this map - GC wiped it before any
+      # insert ever ran, which is exactly the production scenario.
+      evict_rtree_cache(name)
+
+      # The stale home system's bounding box should come back occupied,
+      # rebuilt straight from WandererApp.Map.list_systems/1.
+      {:ok, ids} =
+        CacheRTree.query(
+          WandererApp.Map.PositionCalculator.get_system_bounding_rect(%{
+            position_x: 1575,
+            position_y: -1935
+          }),
+          name
+        )
+
+      assert 31_000_016 in ids
+    end
+
+    test "skips invisible systems and systems without a position on rebuild" do
+      map_id = "map_#{:rand.uniform(1_000_000)}"
+      name = "rtree_#{map_id}"
+
+      seed_map_with_systems(map_id, [
+        %{solar_system_id: 31_000_020, visible: false, position_x: 500, position_y: 500},
+        %{solar_system_id: 31_000_021, visible: true, position_x: nil, position_y: nil},
+        %{solar_system_id: 31_000_022, visible: true, position_x: 500, position_y: 500}
+      ])
+
+      init_and_register_tree(name)
+      evict_rtree_cache(name)
+
+      {:ok, ids} =
+        CacheRTree.query(
+          WandererApp.Map.PositionCalculator.get_system_bounding_rect(%{
+            position_x: 500,
+            position_y: 500
+          }),
+          name
+        )
+
+      assert 31_000_022 in ids
+      assert 31_000_020 not in ids
+      assert 31_000_021 not in ids
+    end
+
+    test "rebuild happens once, later map changes do not trigger another rebuild" do
+      map_id = "map_#{:rand.uniform(1_000_000)}"
+      name = "rtree_#{map_id}"
+
+      seed_map_with_systems(map_id, [
+        %{solar_system_id: 31_000_030, visible: true, position_x: 0, position_y: 0}
+      ])
+
+      init_and_register_tree(name)
+      evict_rtree_cache(name)
+
+      # First call triggers the rebuild and writes both keys back.
+      {:ok, _ids} = CacheRTree.query([{0, 130}, {0, 34}], name)
+
+      assert is_map(WandererApp.Cache.get("rtree:#{name}:leaves"))
+      assert is_map(WandererApp.Cache.get("rtree:#{name}:grid"))
+
+      # Remove the system from the live map. If a query rebuilt from map
+      # state on every call, the system would vanish from the rtree too -
+      # instead the cached leaves/grid from the earlier rebuild must stay
+      # authoritative until something explicitly deletes/updates them.
+      WandererApp.Map.remove_system(map_id, 31_000_030)
+      {:ok, ids} = CacheRTree.query([{0, 130}, {0, 34}], name)
+      assert 31_000_030 in ids
+    end
+
+    test "a name without the rtree_ prefix still behaves as an empty tree after key loss" do
+      map_id = "map_#{:rand.uniform(1_000_000)}"
+      name = "not_a_production_tree_#{map_id}"
+
+      seed_map_with_systems(map_id, [
+        %{solar_system_id: 31_000_040, visible: true, position_x: 0, position_y: 0}
+      ])
+
+      init_and_register_tree(name)
+      evict_rtree_cache(name)
+
+      {:ok, ids} = CacheRTree.query([{0, 130}, {0, 34}], name)
+      assert ids == []
+    end
+
+    test "unknown map_id in an rtree_-prefixed name falls back to an empty tree" do
+      name = "rtree_does_not_exist_#{:rand.uniform(1_000_000)}"
+
+      init_and_register_tree(name)
+      evict_rtree_cache(name)
+
+      {:ok, ids} = CacheRTree.query([{0, 130}, {0, 34}], name)
+      assert ids == []
+    end
+  end
+
   describe "clear_tree/1" do
     test "removes all tree data from cache", %{tree_name: name} do
       # Insert some data
