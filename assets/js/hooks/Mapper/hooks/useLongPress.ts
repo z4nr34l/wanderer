@@ -106,6 +106,14 @@ export const useLongPress = (
       // not, so a plain mouse click on a hybrid device can never be swallowed by it
       state.current.firedRecently = false;
 
+      // a primary pointer only ever starts a brand new gesture (every earlier finger is up by
+      // then), so it is a safe point to forget pointers whose pointerup/pointercancel the
+      // browser dropped (app switch mid-hold, OS killing the stream); without this purge one
+      // leaked id would make every later single-finger hold look like multi-touch
+      if (event.isPrimary) {
+        state.current.activePointers.clear();
+      }
+
       state.current.activePointers.add(event.pointerId);
 
       // a second finger landing means this is a pinch or a multi-finger pan, not a hold; drop

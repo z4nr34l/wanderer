@@ -36,11 +36,19 @@ const renderLongPress = (onLongPress: (event: LongPressEvent) => void, options?:
 };
 
 const pointerEvent = (
-  overrides: Partial<{ pointerType: string; pointerId: number; clientX: number; clientY: number }> = {},
+  overrides: Partial<{
+    pointerType: string;
+    pointerId: number;
+    isPrimary: boolean;
+    clientX: number;
+    clientY: number;
+  }> = {},
 ) =>
   ({
     pointerType: 'touch',
     pointerId: 1,
+    // the browser marks the first finger of a gesture primary and every later one not
+    isPrimary: true,
     clientX: 0,
     clientY: 0,
     pageX: 0,
@@ -139,7 +147,7 @@ describe('useLongPress', () => {
     act(() => {
       handlers.onPointerDown(pointerEvent({ pointerId: 1 }));
       // a pinch or two-finger pan starting mid-hold
-      handlers.onPointerDown(pointerEvent({ pointerId: 2 }));
+      handlers.onPointerDown(pointerEvent({ pointerId: 2, isPrimary: false }));
       jest.advanceTimersByTime(450);
     });
     expect(onLongPress).not.toHaveBeenCalled();
@@ -157,12 +165,31 @@ describe('useLongPress', () => {
 
     act(() => {
       handlers.onPointerDown(pointerEvent({ pointerId: 1 }));
-      handlers.onPointerDown(pointerEvent({ pointerId: 2 }));
+      handlers.onPointerDown(pointerEvent({ pointerId: 2, isPrimary: false }));
       handlers.onPointerUp(pointerEvent({ pointerId: 1 }));
       handlers.onPointerUp(pointerEvent({ pointerId: 2 }));
     });
 
     // a fresh, single-finger hold afterwards should work as usual
+    act(() => {
+      handlers.onPointerDown(pointerEvent({ pointerId: 3, clientX: 0, clientY: 0 }));
+      jest.advanceTimersByTime(450);
+    });
+    expect(onLongPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('recovers from a pointer whose pointerup the browser never delivered', () => {
+    const onLongPress = jest.fn();
+    const { handlers } = renderLongPress(onLongPress, { delay: 450 });
+
+    act(() => {
+      handlers.onPointerDown(pointerEvent({ pointerId: 1 }));
+      handlers.onPointerDown(pointerEvent({ pointerId: 2, isPrimary: false }));
+      // only finger 2 reports lifting; finger 1's pointerup is lost (app switch mid-hold)
+      handlers.onPointerUp(pointerEvent({ pointerId: 2, isPrimary: false }));
+    });
+
+    // the next gesture starts with a primary pointer, which must not be blocked by the leak
     act(() => {
       handlers.onPointerDown(pointerEvent({ pointerId: 3, clientX: 0, clientY: 0 }));
       jest.advanceTimersByTime(450);
