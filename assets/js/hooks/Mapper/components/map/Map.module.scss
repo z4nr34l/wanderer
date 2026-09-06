@@ -8,4 +8,15 @@
     background-color: var(--rf-soft-bg-color, #171717);
     --rf-node-bg-color: var(--rf-node-soft-bg-color, #202020);
   }
+
+  // iOS shows its own copy/lookup callout on a long-press unless an element opts out, and it
+  // would otherwise win the race against the long-press context menu below
+  :global {
+    .react-flow__node,
+    .react-flow__edge {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+  }
 }
