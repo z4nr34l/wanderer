@@ -70,6 +70,8 @@ defmodule WandererApp.Map.PositionCalculator do
         false
 
       _ ->
+        # A query error (or a mocked ddrt returning something unexpected)
+        # counts as free space so placement never blocks on the index.
         true
     end
   end

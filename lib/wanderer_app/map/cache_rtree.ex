@@ -21,6 +21,8 @@ defmodule WandererApp.Map.CacheRTree do
 
   @behaviour WandererApp.Test.DDRT
 
+  require Logger
+
   alias WandererApp.Cache
 
   # Grid cell size in pixels
@@ -267,7 +269,14 @@ defmodule WandererApp.Map.CacheRTree do
   defp cache_key(name, suffix), do: "rtree:#{name}:#{suffix}"
 
   defp get_leaves(name) do
-    Cache.get(cache_key(name, :leaves)) || %{}
+    case Cache.get(cache_key(name, :leaves)) do
+      nil ->
+        rebuild_from_map(name)
+        Cache.get(cache_key(name, :leaves)) || %{}
+
+      leaves ->
+        leaves
+    end
   end
 
   defp put_leaves(name, leaves) do
@@ -275,12 +284,85 @@ defmodule WandererApp.Map.CacheRTree do
   end
 
   defp get_grid(name) do
-    Cache.get(cache_key(name, :grid)) || %{}
+    case Cache.get(cache_key(name, :grid)) do
+      nil ->
+        rebuild_from_map(name)
+        Cache.get(cache_key(name, :grid)) || %{}
+
+      grid ->
+        grid
+    end
   end
 
   defp put_grid(name, grid) do
     Cache.put(cache_key(name, :grid), grid)
   end
+
+  # The Nebulex Local adapter is generational: every gc_interval a new
+  # generation is created and the oldest one is dropped, so a map that sees
+  # no rtree read/write for a couple of gc_intervals loses its leaves/grid
+  # keys entirely (Cache.get returns nil, not an error). Left alone, that nil
+  # is read as "empty tree" and the next placement lands on top of whatever
+  # is already there. Rebuild once from the live map state instead of
+  # quietly serving an empty tree out from under a map that is not actually
+  # empty.
+  #
+  # A tree can also come up missing right after an intentional clear_tree/1
+  # (map stop, zombie cleanup). Rebuilding here anyway is harmless: the map
+  # restart path always calls init_tree/2 before anything else touches the
+  # rtree, so this only ever fires for a map that is genuinely still live.
+  #
+  # Only production tree names ("rtree_<map_id>") can be rebuilt from live
+  # state. Anything else (including the arbitrary names tests use, or a
+  # map_id that is not loaded in Cachex) falls back to an empty tree exactly
+  # like before. insert/delete/update used to be infallible and this runs
+  # inside the map server GenServer, so any unexpected failure here (rather
+  # than the expected "not found" tuples) must degrade to "no rebuild"
+  # instead of crashing the caller.
+  defp rebuild_from_map(name) do
+    with {:ok, map_id} <- extract_map_id(name),
+         {:ok, _map} <- WandererApp.Map.get_map(map_id),
+         {:ok, systems} <- WandererApp.Map.list_systems(map_id) do
+      placeable = Enum.filter(systems, &placeable?/1)
+
+      Logger.warning(
+        "[CacheRTree] rtree for map #{map_id} missing from cache, rebuilding from #{length(placeable)} visible systems"
+      )
+
+      {leaves, grid} =
+        Enum.reduce(placeable, {%{}, %{}}, fn system, {leaves_acc, grid_acc} ->
+          leaf =
+            {system.solar_system_id,
+             WandererApp.Map.PositionCalculator.get_system_bounding_rect(system)}
+
+          {Map.put(leaves_acc, system.solar_system_id, leaf), add_to_grid(grid_acc, leaf)}
+        end)
+
+      put_leaves(name, leaves)
+      put_grid(name, grid)
+    else
+      _ -> :ok
+    end
+  rescue
+    error ->
+      Logger.warning(
+        "[CacheRTree] rebuild failed for #{name}, falling back to empty tree: #{inspect(error)}"
+      )
+
+      :ok
+  end
+
+  defp extract_map_id("rtree_" <> map_id) when map_id != "", do: {:ok, map_id}
+  defp extract_map_id(_name), do: :error
+
+  # Invisible systems have no business blocking a slot, and systems without
+  # a position cannot produce a meaningful bounding box. rtree membership is
+  # expected to track visibility 1:1 because every delete path removes a
+  # system from map state and from the rtree together.
+  defp placeable?(%{visible: true, position_x: x, position_y: y}),
+    do: not is_nil(x) and not is_nil(y)
+
+  defp placeable?(_system), do: false
 
   defp default_config do
     %{
