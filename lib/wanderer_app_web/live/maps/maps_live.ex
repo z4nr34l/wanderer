@@ -186,8 +186,7 @@ defmodule WandererAppWeb.MapsLive do
           discord_form:
             %{
               "discord_webhook_url" => map.discord_webhook_url || "",
-              "home_solar_system_id" => map.home_solar_system_id,
-              "discord_include_thera" => map.discord_include_thera
+              "home_solar_system_id" => map.home_solar_system_id
             }
             |> to_form(),
           discord_status: nil,
@@ -589,8 +588,7 @@ defmodule WandererAppWeb.MapsLive do
 
     case WandererApp.Api.Map.update_discord_settings(map, %{
            discord_webhook_url: (url != "" && url) || nil,
-           home_solar_system_id: home_solar_system_id,
-           discord_include_thera: params["discord_include_thera"] in ["true", true, "on"]
+           home_solar_system_id: home_solar_system_id
          }) do
       {:ok, updated_map} ->
         {:noreply,

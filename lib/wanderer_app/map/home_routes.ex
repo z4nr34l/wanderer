@@ -18,12 +18,22 @@ defmodule WandererApp.Map.HomeRoutes do
 
   @limit 5
 
+  # Thera and Turnur are left out: they are somebody else's holes, they come and go on their own,
+  # and a way home that depends on one is not a way home an hour later.
+  @route_settings %{include_thera: false}
+
   @type entry :: %{
           hub_name: String.t(),
           entrance_name: String.t(),
           jumps: non_neg_integer(),
           security: :high | :low | :mixed
         }
+
+  @doc """
+  What the routes are worked out with. Thera and Turnur are left out on purpose - see above.
+  """
+  @spec route_settings() :: map()
+  def route_settings, do: @route_settings
 
   @doc """
   The way home from each hub, nearest first: the whole trip in jumps, and the system the chain
@@ -37,7 +47,6 @@ defmodule WandererApp.Map.HomeRoutes do
       when is_binary(map_id) and is_list(hub_ids) and hub_ids != [] and
              is_integer(home_solar_system_id) do
     limit = Keyword.get(opts, :limit, @limit)
-    route_settings = %{include_thera: Keyword.get(opts, :include_thera, true)}
 
     hubs =
       hub_ids
@@ -54,7 +63,7 @@ defmodule WandererApp.Map.HomeRoutes do
             map_id,
             hubs,
             to_string(home_solar_system_id),
-            route_settings,
+            @route_settings,
             false
           )
 

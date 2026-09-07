@@ -66,6 +66,12 @@ defmodule WandererApp.Map.HomeRoutesTest do
     end
   end
 
+  describe "route_settings/0" do
+    test "somebody else's holes do not count towards the way home" do
+      assert %{include_thera: false} = HomeRoutes.route_settings()
+    end
+  end
+
   describe "build/4" do
     test "a map with no hubs cannot answer" do
       assert {:error, :no_hubs} = HomeRoutes.build("map", [], @home)

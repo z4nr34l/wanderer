@@ -545,7 +545,8 @@
                   Ten minutes after the map stops changing - in practice, ten minutes after whoever
                   was scanning stopped - the shortest gate routes from the hub to each mouth of the
                   chain are posted to this webhook, nearest first, with the holes left to home.
-                  The hubs are the ones set on the map for routes.
+                  The hubs are the ones set on the map for routes; Thera and Turnur are not
+                  counted.
                 </p>
 
                 <.form :let={f} for={@discord_form} phx-submit="update_discord" class="flex flex-col gap-3">
@@ -566,11 +567,6 @@
                     placeholder="https://discord.com/api/webhooks/..."
                   />
 
-                  <.input
-                    type="checkbox"
-                    field={f[:discord_include_thera]}
-                    label="Count Thera and Turnur"
-                  />
 
                   <div class="flex items-center gap-2">
                     <.button type="submit">Save</.button>

@@ -203,7 +203,7 @@ defmodule WandererApp.Api.Map do
     end
 
     update :update_discord_settings do
-      accept [:discord_webhook_url, :home_solar_system_id, :discord_include_thera]
+      accept [:discord_webhook_url, :home_solar_system_id]
       require_atomic? false
     end
 
@@ -418,12 +418,6 @@ defmodule WandererApp.Api.Map do
     attribute :home_solar_system_id, :integer do
       allow_nil?(true)
       default(nil)
-    end
-
-    # whether the announcement counts Thera and Turnur, the same choice the routes widget offers
-    attribute :discord_include_thera, :boolean do
-      allow_nil?(false)
-      default(true)
     end
 
     # what the last announcement said, so a restart does not repeat it
