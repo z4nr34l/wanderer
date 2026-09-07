@@ -29,6 +29,7 @@ import {
   useContextMenuConnectionHandlers,
   useContextMenuRootHandlers,
 } from './components';
+import { LongPressEvent, useLongPress } from '@/hooks/Mapper/hooks';
 import { getBehaviorForTheme } from './helpers/getThemeBehavior';
 import { useEdgesState, useMapHandlers, useNodesState, useUpdateNodes } from './hooks';
 import { useBackgroundVars } from './hooks/useBackgroundVars';
@@ -177,6 +178,51 @@ const MapComp = ({
 
   const resetContexts = useCallback(() => ctxManager.reset(), []);
 
+  // iOS Safari and Android Chrome never fire a `contextmenu` DOM event on long-press, so touch
+  // needs its own way into the same menus a right-click opens. React Flow renders nodes, edges
+  // and the multi-select rectangle as plain DOM elements above the pane, so the element under
+  // the finger says which menu (if any) a long press should open.
+  const handleLongPress = useCallback(
+    (event: LongPressEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target) {
+        return;
+      }
+
+      const nodeId = target.closest<HTMLElement>('.react-flow__node')?.dataset.id;
+      if (nodeId) {
+        onSystemContextMenu(event as unknown as MouseEvent<Element>, nodeId);
+        return;
+      }
+
+      if (target.closest('.react-flow__nodesselection-rect')) {
+        onSelectionContextMenu?.(
+          event as unknown as MouseEvent<Element>,
+          getNodes().filter(node => node.selected),
+        );
+        return;
+      }
+
+      const edgeTestId = target.closest<HTMLElement>('.react-flow__edge')?.dataset.testid;
+      const edge = edges.find(x => x.id === edgeTestId?.replace(/^rf__edge-/, ''));
+      if (edge) {
+        handleConnectionContext(event as unknown as MouseEvent<Element>, edge);
+        return;
+      }
+
+      // only empty pane background counts as "right-clicked the map"; the MiniMap, Controls
+      // and any other panel sitting on top of the canvas should not open this menu
+      if (!target.closest('.react-flow__pane')) {
+        return;
+      }
+
+      handleRootContext(event as unknown as MouseEvent<HTMLDivElement>);
+    },
+    [edges, getNodes, handleConnectionContext, handleRootContext, onSelectionContextMenu, onSystemContextMenu],
+  );
+
+  const longPress = useLongPress(handleLongPress);
+
   const handleSelectionChange: OnSelectionChangeFunc = useCallback(
     ({ edges, nodes }) => {
       onSelectionChange({
@@ -274,6 +320,22 @@ const MapComp = ({
           // @ts-expect-error
           onPaneContextMenu={handleRootContext}
           onSelectionContextMenu={(ev, nodes) => onSelectionContextMenu?.(ev, nodes)}
+          // touch has no contextmenu event of its own on iOS, so a long press is routed to the
+          // same handlers above by hand; see handleLongPress. The capture handlers swallow what
+          // a touch device does once the finger lifts: Android still fires a native contextmenu
+          // around the same time the hold timer does (which would otherwise reach the
+          // onNodeContextMenu/onPaneContextMenu/onEdgeContextMenu/onSelectionContextMenu props
+          // above a second time and make PrimeReact's menu flicker), and every touch device
+          // follows up with a mousedown/mouseup/click that would otherwise run resetContexts or
+          // a plain tap's own click handler right after the menu opens
+          onPointerDown={longPress.onPointerDown}
+          onPointerMove={longPress.onPointerMove}
+          onPointerUp={longPress.onPointerUp}
+          onPointerCancel={longPress.onPointerCancel}
+          onContextMenuCapture={longPress.onContextMenuCapture}
+          onMouseDownCapture={longPress.onMouseDownCapture}
+          onMouseUpCapture={longPress.onMouseUpCapture}
+          onClickCapture={longPress.onClickCapture}
           onSelectionChange={handleSelectionChange} // TODO - somewhy calling 2 times. don't know why
           // onSelectionEnd={handleSelectionChange}
           onMoveStart={resetContexts}
