@@ -1,7 +1,7 @@
 import { DotlanBehavior } from '@/hooks/Mapper/mapRootProvider/types.ts';
 import { to_5 } from './to_5.ts';
 
-describe('to_5', () => {
+describe('to_6', () => {
   it('adds the default Dotlan behavior to existing interface settings', () => {
     const previousSettings = {
       interface: {
