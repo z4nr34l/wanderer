@@ -1,6 +1,6 @@
 import { DotlanBehavior, MigrationStructure } from '@/hooks/Mapper/mapRootProvider/types.ts';
 
-export const to_5: MigrationStructure = {
+export const to_6: MigrationStructure = {
   to: 6,
   up: prev => ({
     ...prev,
