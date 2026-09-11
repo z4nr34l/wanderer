@@ -1,5 +1,10 @@
 import { InterfaceStoredSettingsProps } from '@/hooks/Mapper/mapRootProvider';
-import { AvailableThemes, MiniMapPlacement, PingsPlacement } from '@/hooks/Mapper/mapRootProvider/types.ts';
+import {
+  AvailableThemes,
+  DotlanBehavior,
+  MiniMapPlacement,
+  PingsPlacement,
+} from '@/hooks/Mapper/mapRootProvider/types.ts';
 import { SettingsListItem, UserSettingsRemoteProps } from './types.ts';
 import {
   BUBBLE_BORDER_RANGE,
@@ -18,6 +23,25 @@ export { DEFAULT_REMOTE_SETTINGS, UserSettingsRemoteList } from '@/hooks/Mapper/
 //   //   type: 'checkbox',
 //   // },
 // ];
+
+export const DOTLAN_BEHAVIOR_OPTIONS = [
+  { label: 'System information', value: DotlanBehavior.system },
+  { label: '(map) Security status', value: DotlanBehavior.security },
+  { label: '(map) Sovereignty', value: DotlanBehavior.sovereignty },
+  { label: '(map) Constellations', value: DotlanBehavior.constellation },
+  { label: '(map) Gate jumps', value: DotlanBehavior.jumps },
+  { label: '(map) PvP kills', value: DotlanBehavior.kills },
+  { label: '(map) NPC kills', value: DotlanBehavior.npcKills },
+  { label: '(map) NPC kills delta', value: DotlanBehavior.npcKillsDelta },
+];
+
+export const DOTLAN_BEHAVIOR_SETTING: SettingsListItem = {
+  prop: 'dotlanBehavior',
+  label: 'Dotlan shortcut opens',
+  type: 'dropdown',
+  options: DOTLAN_BEHAVIOR_OPTIONS,
+  dropdownScrollHeight: '320px',
+};
 
 export const SYSTEMS_CHECKBOXES_PROPS: SettingsListItem[] = [
   {

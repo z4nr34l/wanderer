@@ -116,6 +116,7 @@ export const MapSettingsProvider = ({ children }: WithChildren) => {
               className="text-sm"
               value={currentValue}
               options={item.options}
+              scrollHeight={item.dropdownScrollHeight}
               onChange={e => handleSettingChange(item.prop, e.value)}
               placeholder="Select a theme"
             />

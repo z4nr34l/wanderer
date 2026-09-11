@@ -2,6 +2,15 @@
 
 <!-- changelog -->
 
+## [v1.101.16](https://github.com/wanderer-industries/wanderer/compare/v1.101.15...v1.101.16) (2026-09-11)
+
+
+
+
+### Bug Fixes:
+
+* map: Added ability to select type of dotlan opening settings for system
+
 ## [v1.101.15](https://github.com/wanderer-industries/wanderer/compare/v1.101.14...v1.101.15) (2026-09-10)
 
 
