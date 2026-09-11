@@ -2,6 +2,15 @@
 
 <!-- changelog -->
 
+## [v1.101.18](https://github.com/wanderer-industries/wanderer/compare/v1.101.17...v1.101.18) (2026-09-11)
+
+
+
+
+### Bug Fixes:
+
+* make map webhooks usable
+
 ## [v1.101.17](https://github.com/wanderer-industries/wanderer/compare/v1.101.16...v1.101.17) (2026-09-11)
 
 
