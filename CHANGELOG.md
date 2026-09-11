@@ -2,6 +2,15 @@
 
 <!-- changelog -->
 
+## [v1.101.19](https://github.com/wanderer-industries/wanderer/compare/v1.101.18...v1.101.19) (2026-09-11)
+
+
+
+
+### Bug Fixes:
+
+* map: Fixed links in Description - now it opens sites in new tab
+
 ## [v1.101.18](https://github.com/wanderer-industries/wanderer/compare/v1.101.17...v1.101.18) (2026-09-11)
 
 
