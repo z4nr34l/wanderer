@@ -21,6 +21,7 @@ defmodule WandererApp.Api.AccessListMember do
       :eve_character_id,
       :eve_corporation_id,
       :eve_alliance_id,
+      :discord_role_id,
       :role
     ])
 
@@ -58,6 +59,7 @@ defmodule WandererApp.Api.AccessListMember do
       :eve_character_id,
       :eve_corporation_id,
       :eve_alliance_id,
+      :discord_role_id,
       :role
     ]
 
@@ -115,6 +117,15 @@ defmodule WandererApp.Api.AccessListMember do
       public? true
     end
 
+    # A Discord role, read against the guild named by the access list this member belongs to.
+    # It is a group, in the same sense a corporation or an alliance is a group here, and it is
+    # treated the same way: it can let people in, it can block them, and it cannot make anyone an
+    # admin or a manager.
+    attribute :discord_role_id, :string do
+      allow_nil? true
+      public? true
+    end
+
     attribute :role, :atom do
       default "viewer"
       public? true
@@ -159,6 +170,10 @@ defmodule WandererApp.Api.AccessListMember do
     end
 
     identity :uniq_acl_alliance_id, [:access_list_id, :eve_alliance_id] do
+      pre_check?(true)
+    end
+
+    identity :uniq_acl_discord_role_id, [:access_list_id, :discord_role_id] do
       pre_check?(true)
     end
   end

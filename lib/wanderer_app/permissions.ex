@@ -91,7 +91,19 @@ defmodule WandererApp.Permissions do
     }
   end
 
-  def check_characters_access(characters, acls) do
+  def check_characters_access(characters, acls),
+    do: check_characters_access(characters, acls, discord_roles_for(characters, acls))
+
+  @doc """
+  As above, but told up front which Discord roles the people behind these characters hold.
+
+  The roles are passed in rather than looked up here so the decision stays a pure function of
+  what is known, and so the one place that talks to Discord stays in
+  `WandererApp.Discord.Roles`. `roles_by_guild` maps a guild id to the set of role ids held in
+  that guild. A guild missing from the map means we do not know, and a Discord role member of an
+  access list in that guild grants nothing.
+  """
+  def check_characters_access(characters, acls, roles_by_guild) do
     character_ids = characters |> Enum.map(& &1.id)
     character_eve_ids = characters |> Enum.map(& &1.eve_id)
 
@@ -116,7 +128,12 @@ defmodule WandererApp.Permissions do
           acl.members
           |> Enum.any?(fn member -> member.eve_alliance_id in character_alliance_ids end)
 
-        if is_owner? || is_character_member? || is_corporation_member? || is_alliance_member? do
+        is_discord_member? =
+          acl.members
+          |> Enum.any?(fn member -> discord_member?(member, acl, roles_by_guild) end)
+
+        if is_owner? || is_character_member? || is_corporation_member? || is_alliance_member? ||
+             is_discord_member? do
           case acc do
             [_, -1] ->
               [-1, -1]
@@ -148,7 +165,8 @@ defmodule WandererApp.Permissions do
                 |> Enum.filter(fn member ->
                   member.eve_character_id in character_eve_ids ||
                     member.eve_corporation_id in character_corporation_ids ||
-                    member.eve_alliance_id in character_alliance_ids
+                    member.eve_alliance_id in character_alliance_ids ||
+                    discord_member?(member, acl, roles_by_guild)
                 end)
                 |> Enum.reduce(0, fn member, acc ->
                   case acc do
@@ -198,5 +216,67 @@ defmodule WandererApp.Permissions do
       [any_acc, _char_acc] ->
         [any_acc]
     end
+  end
+
+  # A Discord role member only counts when the access list says which guild the role lives in and
+  # we currently know the person holds it there. Anything unknown counts for nothing.
+  defp discord_member?(%{discord_role_id: role_id}, %{discord_guild_id: guild_id}, roles_by_guild)
+       when is_binary(role_id) and is_binary(guild_id) do
+    case Map.get(roles_by_guild, guild_id) do
+      nil -> false
+      roles -> MapSet.member?(roles, role_id)
+    end
+  end
+
+  defp discord_member?(_member, _acl, _roles_by_guild), do: false
+
+  # The guilds worth asking about are only the ones an access list in play actually names.
+  defp discord_roles_for(characters, acls) do
+    guild_ids =
+      acls
+      |> Enum.filter(&discord_roles_in_play?/1)
+      |> Enum.map(& &1.discord_guild_id)
+      |> Enum.uniq()
+
+    case guild_ids do
+      [] ->
+        %{}
+
+      guild_ids ->
+        case discord_user_id(characters) do
+          nil ->
+            %{}
+
+          discord_user_id ->
+            guild_ids
+            |> Enum.reduce(%{}, fn guild_id, acc ->
+              case WandererApp.Discord.Roles.for_user(discord_user_id, guild_id) do
+                {:ok, roles} -> Map.put(acc, guild_id, roles)
+                :error -> acc
+              end
+            end)
+        end
+    end
+  end
+
+  defp discord_roles_in_play?(%{discord_guild_id: guild_id, members: members})
+       when is_binary(guild_id) and is_list(members),
+       do: Enum.any?(members, &is_binary(&1.discord_role_id))
+
+  defp discord_roles_in_play?(_acl), do: false
+
+  # Characters handed to this function always belong to one person, so the first account that
+  # carries a Discord link is that person's.
+  defp discord_user_id(characters) do
+    characters
+    |> Enum.map(& &1.user_id)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+    |> Enum.find_value(fn user_id ->
+      case WandererApp.Api.User.by_id(user_id) do
+        {:ok, %{discord_user_id: discord_user_id}} -> discord_user_id
+        _ -> nil
+      end
+    end)
   end
 end

@@ -101,6 +101,7 @@
                 id={"select_role_" <> member.id}
                 notify_to={self()}
                 member={member}
+                discord_name={Map.get(@discord_identities, member.eve_character_id)}
                 event_name="update_role"
               />
               <button
@@ -184,6 +185,16 @@
       placeholder="Select an owner"
       options={Enum.map(@characters, fn character -> {character.label, character.id} end)}
     />
+    <.input
+      type="text"
+      field={f[:discord_guild_id]}
+      label="Discord server id"
+      placeholder="Optional, needed only for Discord role members"
+    />
+    <p class="mt-1 text-xs text-gray-400">
+      A Discord role id means nothing on its own. Naming the server here is what lets this list
+      grant access by role, and it needs the Wanderer bot to be in that server.
+    </p>
     
 <!-- Divider between above inputs and the API key section -->
     <hr class="my-4 border-gray-600" />
@@ -265,4 +276,49 @@
       </.button>
     </div>
   </.form>
+
+  <hr class="my-4 border-gray-600" />
+
+  <form phx-submit="add_discord_role">
+    <label class="block text-sm font-medium text-gray-200 mb-1">Add a Discord role</label>
+    <p
+      :if={is_nil(@access_list.discord_guild_id) or @access_list.discord_guild_id == ""}
+      class="mb-2 text-xs text-amber-400"
+    >
+      Set the Discord server id on this access list first, otherwise a role id says nothing about
+      where it came from.
+    </p>
+    <div class="grid grid-cols-12 gap-2">
+      <div class="col-span-6">
+        <input
+          type="text"
+          name="discord_role_id"
+          placeholder="Role id"
+          class="input input-bordered w-full h-8 min-h-[0px] text-sm bg-neutral-900"
+        />
+      </div>
+      <div class="col-span-4">
+        <input
+          type="text"
+          name="discord_role_name"
+          placeholder="Label"
+          class="input input-bordered w-full h-8 min-h-[0px] text-sm bg-neutral-900"
+        />
+      </div>
+      <div class="col-span-2">
+        <.button
+          type="submit"
+          disabled={is_nil(@access_list.discord_guild_id) or @access_list.discord_guild_id == ""}
+          class="p-button p-component w-full"
+        >
+          <span class="p-button-label">Add</span>
+        </.button>
+      </div>
+    </div>
+    <p class="mt-1 text-xs text-gray-400">
+      A role can let people in or block them, and like a corporation or an alliance it can never
+      make anyone an admin or a manager. It only applies to people who have linked their Discord
+      account.
+    </p>
+  </form>
 </.modal>

@@ -423,7 +423,7 @@ defmodule WandererAppWeb.Factory do
     # Only set default eve_character_id if no entity IDs are provided
     default_attrs =
       if Map.has_key?(attrs, :eve_character_id) or Map.has_key?(attrs, :eve_corporation_id) or
-           Map.has_key?(attrs, :eve_alliance_id) do
+           Map.has_key?(attrs, :eve_alliance_id) or Map.has_key?(attrs, :discord_role_id) do
         %{
           name: "Test Entity #{unique_id}",
           role: "viewer"

@@ -63,7 +63,14 @@ defmodule WandererApp.MapRepo do
     |> Ash.load(
       acls: [
         :owner_id,
-        members: [:role, :eve_character_id, :eve_corporation_id, :eve_alliance_id]
+        :discord_guild_id,
+        members: [
+          :role,
+          :eve_character_id,
+          :eve_corporation_id,
+          :eve_alliance_id,
+          :discord_role_id
+        ]
       ]
     )
     |> case do
@@ -247,7 +254,8 @@ defmodule WandererApp.MapRepo do
 
   def default_system_labels, do: @default_system_labels
 
-  def normalize_system_labels(labels) when is_list(labels) and labels != [] and length(labels) <= 64 do
+  def normalize_system_labels(labels)
+      when is_list(labels) and labels != [] and length(labels) <= 64 do
     with {:ok, normalized} <- normalize_label_entries(labels),
          true <- unique_label_ids?(normalized) do
       {:ok, normalized}

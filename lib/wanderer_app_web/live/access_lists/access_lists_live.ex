@@ -28,6 +28,7 @@ defmodule WandererAppWeb.AccessListsLive do
        access_lists: access_lists |> Enum.map(fn acl -> map_ui_acl(acl, nil) end),
        characters: characters,
        members: [],
+       discord_identities: %{},
        members_page: 1,
        members_per_page: @members_per_page
      )}
@@ -44,6 +45,7 @@ defmodule WandererAppWeb.AccessListsLive do
        access_lists: [],
        characters: [],
        members: [],
+       discord_identities: %{},
        members_page: 1,
        members_per_page: @members_per_page
      )}
@@ -100,6 +102,7 @@ defmodule WandererAppWeb.AccessListsLive do
       |> assign(:selected_acl_id, acl_id)
       |> assign(:access_list, access_list)
       |> assign(:members, members)
+      |> assign(:discord_identities, discord_identities(members))
       |> assign(:members_page, 1)
     else
       _ ->
@@ -131,6 +134,9 @@ defmodule WandererAppWeb.AccessListsLive do
         :members,
         WandererApp.Api.AccessListMember.read_by_access_list!(%{access_list_id: acl_id})
       )
+      |> then(fn socket ->
+        assign(socket, :discord_identities, discord_identities(socket.assigns.members))
+      end)
       |> assign(
         :member_form,
         %{} |> to_form()
@@ -244,6 +250,40 @@ defmodule WandererAppWeb.AccessListsLive do
     add_member(socket, assigns.access_list.id, member_option)
 
     {:noreply, socket |> push_patch(to: ~p"/access-lists/#{assigns.access_list.id}")}
+  end
+
+  def handle_event(
+        "add_discord_role",
+        %{"discord_role_id" => discord_role_id, "discord_role_name" => name} = _params,
+        %{assigns: %{access_list: access_list, current_user: current_user}} = socket
+      ) do
+    discord_role_id = String.trim(discord_role_id)
+    name = String.trim(name)
+
+    cond do
+      not can_add_members?(access_list, current_user) ->
+        {:noreply, socket |> put_flash(:error, "You're not allowed to add members")}
+
+      is_nil(access_list.discord_guild_id) or access_list.discord_guild_id == "" ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "Set the Discord server for this access list before adding roles to it"
+         )}
+
+      discord_role_id == "" ->
+        {:noreply, socket |> put_flash(:error, "A Discord role id is required")}
+
+      true ->
+        add_member(socket, access_list.id, %{
+          label: (name != "" && name) || "Discord role #{discord_role_id}",
+          value: discord_role_id,
+          discord_role: true
+        })
+
+        {:noreply, socket |> push_patch(to: ~p"/access-lists/#{access_list.id}")}
+    end
   end
 
   def handle_event("delete-acl", %{"id" => acl_id} = _params, socket) do
@@ -413,13 +453,15 @@ defmodule WandererAppWeb.AccessListsLive do
            id: member_id,
            eve_character_id: eve_character_id,
            eve_corporation_id: eve_corporation_id,
-           eve_alliance_id: eve_alliance_id
+           eve_alliance_id: eve_alliance_id,
+           discord_role_id: discord_role_id
          } = member,
          role_atom,
          access_list
        )
        when not is_nil(eve_character_id) or
-              ((not is_nil(eve_corporation_id) or not is_nil(eve_alliance_id)) and
+              ((not is_nil(eve_corporation_id) or not is_nil(eve_alliance_id) or
+                  not is_nil(discord_role_id)) and
                  role_atom not in [:admin, :manager]) do
     can_assign_role =
       cond do
@@ -666,6 +708,51 @@ defmodule WandererAppWeb.AccessListsLive do
     end
   end
 
+  defp add_member(
+         socket,
+         access_list_id,
+         %{label: name, value: discord_role_id, discord_role: true} = _member_option
+       ) do
+    case WandererApp.Api.AccessListMember.create(%{
+           access_list_id: access_list_id,
+           name: name,
+           eve_character_id: nil,
+           eve_corporation_id: nil,
+           eve_alliance_id: nil,
+           discord_role_id: discord_role_id,
+           # a Discord role is a group, and groups start as viewers here, same as an alliance
+           role: :viewer
+         }) do
+      {:ok, member} ->
+        broadcast_member_added_event(access_list_id, member)
+
+        {:ok, _} =
+          WandererApp.User.ActivityTracker.track_acl_event(:map_acl_member_added, %{
+            user_id: socket.assigns.current_user.id,
+            acl_id: access_list_id,
+            member:
+              member
+              |> Map.take([
+                :eve_character_id,
+                :eve_corporation_id,
+                :eve_alliance_id,
+                :discord_role_id,
+                :role
+              ])
+          })
+
+        :telemetry.execute([:wanderer_app, :acl, :member, :add], %{count: 1})
+
+        broadcast_acl_updated(access_list_id)
+
+        {:ok, member}
+
+      error ->
+        Logger.error(error)
+        {:ok, nil}
+    end
+  end
+
   attr :disabled, :boolean, default: true
   attr :name, :string
   attr :icon, :string
@@ -731,6 +818,64 @@ defmodule WandererAppWeb.AccessListsLive do
 
   defp map_character(%{name: name, id: id, eve_id: eve_id} = _character) do
     %{label: name, value: id, id: id, eve_id: eve_id}
+  end
+
+  # Who is behind the character members of this list, for the people who run it.
+  #
+  # This is the useful half of Discord linking and also the sensitive half, so where it is shown
+  # is a decision rather than a side effect. It is shown here, on the access list page, which only
+  # the owner and the admins and managers of a list can reach at all. Nothing surfaces it to
+  # ordinary map members; doing that is a separate decision and a separate change.
+  defp discord_identities(members) do
+    eve_ids =
+      members
+      |> Enum.map(& &1.eve_character_id)
+      |> Enum.reject(&is_nil/1)
+
+    case eve_ids do
+      [] ->
+        %{}
+
+      eve_ids ->
+        characters =
+          WandererApp.Api.Character
+          |> Ash.Query.filter(eve_id in ^eve_ids)
+          |> Ash.read()
+          |> case do
+            {:ok, characters} -> characters
+            _ -> []
+          end
+
+        user_ids = characters |> Enum.map(& &1.user_id) |> Enum.reject(&is_nil/1) |> Enum.uniq()
+
+        names =
+          case user_ids do
+            [] ->
+              %{}
+
+            user_ids ->
+              WandererApp.Api.User
+              |> Ash.Query.filter(id in ^user_ids)
+              |> Ash.read()
+              |> case do
+                {:ok, users} ->
+                  users
+                  |> Enum.filter(&is_binary(&1.discord_username))
+                  |> Map.new(&{&1.id, &1.discord_username})
+
+                _ ->
+                  %{}
+              end
+          end
+
+        characters
+        |> Enum.reduce(%{}, fn character, acc ->
+          case Map.get(names, character.user_id) do
+            nil -> acc
+            name -> Map.put(acc, character.eve_id, name)
+          end
+        end)
+    end
   end
 
   defp map_ui_acl(acl, selected_id) do

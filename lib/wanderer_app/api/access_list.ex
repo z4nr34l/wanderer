@@ -18,7 +18,8 @@ defmodule WandererApp.Api.AccessList do
 
     default_fields([
       :name,
-      :description
+      :description,
+      :discord_guild_id
     ])
 
     derive_filter?(true)
@@ -52,7 +53,8 @@ defmodule WandererApp.Api.AccessList do
     default_accept [
       :name,
       :description,
-      :owner_id
+      :owner_id,
+      :discord_guild_id
     ]
 
     defaults [:create, :read, :destroy]
@@ -63,12 +65,12 @@ defmodule WandererApp.Api.AccessList do
 
     create :new do
       # Added :api_key to the accepted attributes
-      accept [:name, :description, :owner_id, :api_key]
+      accept [:name, :description, :owner_id, :api_key, :discord_guild_id]
       primary?(true)
     end
 
     update :update do
-      accept [:name, :description, :owner_id, :api_key]
+      accept [:name, :description, :owner_id, :api_key, :discord_guild_id]
       primary?(true)
       require_atomic? false
     end
@@ -88,6 +90,15 @@ defmodule WandererApp.Api.AccessList do
     end
 
     attribute :description, :string do
+      allow_nil? true
+      public? true
+    end
+
+    # Which Discord server the role members of this list live on. A role id on its own says
+    # nothing about where it came from, so it is kept here, once, for the whole list rather than
+    # repeated on every member. An access list is also the thing that is shared between maps, so
+    # this is the level at which the answer stays true.
+    attribute :discord_guild_id, :string do
       allow_nil? true
       public? true
     end

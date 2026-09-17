@@ -10,7 +10,14 @@ defmodule WandererApp.Map.Server.AclsImpl do
       WandererApp.MapRepo.get(map_id,
         acls: [
           :owner_id,
-          members: [:role, :eve_character_id, :eve_corporation_id, :eve_alliance_id]
+          :discord_guild_id,
+          members: [
+            :role,
+            :eve_character_id,
+            :eve_corporation_id,
+            :eve_alliance_id,
+            :discord_role_id
+          ]
         ]
       )
 
@@ -78,7 +85,14 @@ defmodule WandererApp.Map.Server.AclsImpl do
       WandererApp.MapRepo.get(map_id,
         acls: [
           :owner_id,
-          members: [:role, :eve_character_id, :eve_corporation_id, :eve_alliance_id]
+          :discord_guild_id,
+          members: [
+            :role,
+            :eve_character_id,
+            :eve_corporation_id,
+            :eve_alliance_id,
+            :discord_role_id
+          ]
         ]
       )
 
@@ -102,7 +116,14 @@ defmodule WandererApp.Map.Server.AclsImpl do
       WandererApp.MapRepo.get(map_id,
         acls: [
           :owner_id,
-          members: [:role, :eve_character_id, :eve_corporation_id, :eve_alliance_id]
+          :discord_guild_id,
+          members: [
+            :role,
+            :eve_character_id,
+            :eve_corporation_id,
+            :eve_alliance_id,
+            :discord_role_id
+          ]
         ]
       )
 

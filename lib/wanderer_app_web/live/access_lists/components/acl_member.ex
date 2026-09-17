@@ -27,7 +27,11 @@ defmodule WandererAppWeb.AclMember do
 
     {:ok,
      socket
-     |> assign(member: member, form: to_form(%{"role" => member.role}))}
+     |> assign(
+       member: member,
+       discord_name: Map.get(assigns, :discord_name),
+       form: to_form(%{"role" => member.role})
+     )}
   end
 
   @impl true
@@ -45,12 +49,26 @@ defmodule WandererAppWeb.AclMember do
           options={Enum.map(@roles, fn role -> {role.label, role.value} end)}
         />
       </.form>
-      <div class="avatar">
+      <div :if={is_nil(@member.discord_role_id)} class="avatar">
         <div class="rounded-md w-8 h-8">
           <img src={member_icon_url(@member)} alt={@member.name} />
         </div>
       </div>
+      <div
+        :if={not is_nil(@member.discord_role_id)}
+        class="flex items-center justify-center w-8 h-8 rounded-md bg-indigo-900/60"
+        title={"Discord role " <> @member.discord_role_id}
+      >
+        <.icon name="hero-hashtag-solid" class="w-4 h-4 text-indigo-300" />
+      </div>
       {@member.name}
+      <span
+        :if={not is_nil(@discord_name)}
+        class="px-1.5 py-0.5 bg-stone-800 rounded text-indigo-400 text-xs font-mono"
+        title="Linked Discord account"
+      >
+        {@discord_name}
+      </span>
     </div>
     """
   end

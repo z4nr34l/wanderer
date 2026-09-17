@@ -26,8 +26,8 @@ defmodule WandererApp.Discord.LinkTest do
     )
 
     on_exit(fn ->
-      Application.put_env(:wanderer_app, :discord_http_client, previous_client)
-      Application.put_env(:wanderer_app, WandererApp.Discord, previous_config)
+      restore(:discord_http_client, previous_client)
+      restore(WandererApp.Discord, previous_config)
       :persistent_term.erase({__MODULE__, :identity})
     end)
 
@@ -148,6 +148,9 @@ defmodule WandererApp.Discord.LinkTest do
       assert is_nil(unlinked.discord_user_id)
     end
   end
+
+  defp restore(key, nil), do: Application.delete_env(:wanderer_app, key)
+  defp restore(key, value), do: Application.put_env(:wanderer_app, key, value)
 
   defp state_from(url) do
     url

@@ -58,7 +58,7 @@ defmodule WandererApp.Discord.Link do
              discord_username: username
            }) do
       # a fresh link can only grant access, but the caches that hold the old answer have to go
-      revoke_derived_access(user_id)
+      revoke_derived_access(user_id, discord_user_id)
 
       {:ok, user}
     else
@@ -78,10 +78,10 @@ defmodule WandererApp.Discord.Link do
   @spec unlink(String.t()) :: {:ok, map()} | {:error, atom()}
   def unlink(user_id) when is_binary(user_id) do
     case WandererApp.Api.User.by_id(user_id) do
-      {:ok, user} ->
+      {:ok, %{discord_user_id: discord_user_id} = user} ->
         case WandererApp.Api.User.unlink_discord(user) do
           {:ok, user} ->
-            revoke_derived_access(user_id)
+            revoke_derived_access(user_id, discord_user_id)
             {:ok, user}
 
           error ->
@@ -98,8 +98,10 @@ defmodule WandererApp.Discord.Link do
 
   Called on link, on unlink, and by anything that deletes an account.
   """
-  @spec revoke_derived_access(String.t()) :: :ok
-  def revoke_derived_access(user_id) when is_binary(user_id) do
+  @spec revoke_derived_access(String.t(), String.t() | nil) :: :ok
+  def revoke_derived_access(user_id, discord_user_id) when is_binary(user_id) do
+    if is_binary(discord_user_id), do: WandererApp.Discord.Roles.forget(discord_user_id)
+
     case WandererApp.Api.Character.active_by_user(%{user_id: user_id}) do
       {:ok, characters} ->
         Enum.each(characters, fn character ->
@@ -135,6 +137,7 @@ defmodule WandererApp.Discord.Link do
   defp state_key(state), do: "discord_link_state:#{state}"
 
   defp normalise({:error, reason}) when is_atom(reason), do: reason
+
   defp normalise(error) do
     Logger.warning("[Discord] link failed: #{inspect(error)}")
     :link_failed
