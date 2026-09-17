@@ -60,6 +60,39 @@
     </a>
   </div>
   <div
+    :if={@discord_linking_enabled?}
+    class="flex items-center justify-between gap-4 px-4 py-2 mb-4 bg-stone-900/60 border border-stone-800 rounded"
+  >
+    <div class="flex items-center gap-3">
+      <.icon name="hero-link-solid" class="w-4 h-4 text-indigo-400 flex-shrink-0" />
+      <span :if={is_nil(@discord_username)} class="text-sm text-gray-300">
+        Link a Discord account so the rest of the team can see whose characters these are, and so
+        access lists can grant access by Discord role.
+      </span>
+      <span :if={not is_nil(@discord_username)} class="text-sm text-gray-300">
+        These characters are linked to Discord as
+        <span class="ml-1 px-1.5 py-0.5 bg-stone-800 rounded text-indigo-400 text-xs font-mono">
+          {@discord_username}
+        </span>
+      </span>
+    </div>
+    <a
+      :if={is_nil(@discord_username)}
+      href={~p"/characters/discord/link"}
+      class="inline-flex items-center gap-1.5 px-3 py-1 text-sm text-white rounded bg-indigo-700 hover:bg-indigo-600 transition-colors"
+    >
+      <span>Link Discord</span>
+    </a>
+    <button
+      :if={not is_nil(@discord_username)}
+      phx-click="unlink_discord"
+      data={[confirm: "Unlinking removes any access granted by your Discord roles. Continue?"]}
+      class="inline-flex items-center gap-1.5 px-3 py-1 text-sm text-white rounded bg-stone-700 hover:bg-stone-600 transition-colors"
+    >
+      <span>Unlink Discord</span>
+    </button>
+  </div>
+  <div
     :if={@show_characters_add_alert}
     role="alert"
     class="alert"

@@ -535,6 +535,19 @@ defmodule WandererAppWeb.Router do
   end
 
   #
+  # Discord account linking
+  #
+  # Declared ahead of the live sessions so the redirect legs are plain requests. Both sit behind
+  # the authenticated pipeline, which is half of what makes a link trustworthy.
+  #
+  scope "/characters/discord", WandererAppWeb do
+    pipe_through([:browser, :require_auth])
+
+    get("/link", DiscordLinkController, :link)
+    get("/callback", DiscordLinkController, :callback)
+  end
+
+  #
   # Additional routes / Live sessions
   #
   scope "/", WandererAppWeb do

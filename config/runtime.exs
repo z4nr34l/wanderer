@@ -264,6 +264,18 @@ config :ueberauth, Ueberauth,
        ]}
   ]
 
+# Discord.
+#
+# The OAuth application (client id and secret) is all that account linking needs. The bot token
+# is only needed for Discord role based access lists: without it the role members are inert, and
+# the server says so rather than guessing at membership.
+config :wanderer_app, WandererApp.Discord,
+  client_id: System.get_env("WANDERER_DISCORD_CLIENT_ID"),
+  client_secret: System.get_env("WANDERER_DISCORD_CLIENT_SECRET"),
+  bot_token: System.get_env("WANDERER_DISCORD_BOT_TOKEN"),
+  redirect_uri:
+    System.get_env("WANDERER_DISCORD_REDIRECT_URI", "#{web_app_url}/characters/discord/callback")
+
 config :ueberauth, WandererApp.Ueberauth.Strategy.Eve.OAuth,
   client_id: {WandererApp.Ueberauth, :client_id},
   client_secret: {WandererApp.Ueberauth, :client_secret},

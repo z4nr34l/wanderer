@@ -37,18 +37,42 @@ defmodule WandererAppWeb.CharactersLive do
        mode: :blocks,
        wallet_tracking_enabled?: WandererApp.Env.wallet_tracking_enabled?(),
        characters: characters |> Enum.sort_by(& &1.name, :asc) |> Enum.map(&map_ui_character/1),
-       user_id: user_id
+       user_id: user_id,
+       discord_linking_enabled?: WandererApp.Discord.Config.linking_enabled?(),
+       discord_username: discord_username(user_id)
      )}
   end
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign(characters: [], user_id: nil)}
+    {:ok,
+     socket
+     |> assign(
+       characters: [],
+       user_id: nil,
+       discord_linking_enabled?: false,
+       discord_username: nil
+     )}
   end
 
   @impl true
   def handle_params(params, _url, socket) do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
+  end
+
+  @impl true
+  def handle_event("unlink_discord", _params, %{assigns: %{user_id: user_id}} = socket)
+      when not is_nil(user_id) do
+    case WandererApp.Discord.Link.unlink(user_id) do
+      {:ok, _user} ->
+        {:noreply,
+         socket
+         |> assign(discord_username: nil)
+         |> put_flash(:info, "Discord account unlinked")}
+
+      {:error, _reason} ->
+        {:noreply, socket |> put_flash(:error, "Could not unlink the Discord account")}
+    end
   end
 
   @impl true
@@ -189,6 +213,13 @@ defmodule WandererAppWeb.CharactersLive do
     |> assign(:active_page, :characters)
     |> assign(:page_title, "Authorize Character - Characters")
     |> assign(:form, to_form(%{}))
+  end
+
+  defp discord_username(user_id) do
+    case WandererApp.Api.User.by_id(user_id) do
+      {:ok, %{discord_username: username}} -> username
+      _ -> nil
+    end
   end
 
   defp map_ui_character(character) do

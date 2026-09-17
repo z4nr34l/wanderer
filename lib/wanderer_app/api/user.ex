@@ -43,6 +43,19 @@ defmodule WandererApp.Api.User do
     define(:update_balance,
       action: :update_balance
     )
+
+    define(:by_discord_user_id,
+      get_by: [:discord_user_id],
+      action: :read
+    )
+
+    define(:link_discord,
+      action: :link_discord
+    )
+
+    define(:unlink_discord,
+      action: :unlink_discord
+    )
   end
 
   actions do
@@ -70,6 +83,24 @@ defmodule WandererApp.Api.User do
       validate compare(:balance, greater_than_or_equal_to: 0),
         message: "balance cannot be negative"
     end
+
+    update :link_discord do
+      require_atomic? false
+
+      accept([:discord_user_id, :discord_username])
+
+      change(set_attribute(:discord_linked_at, &DateTime.utc_now/0))
+    end
+
+    update :unlink_discord do
+      require_atomic? false
+
+      accept([])
+
+      change(set_attribute(:discord_user_id, nil))
+      change(set_attribute(:discord_username, nil))
+      change(set_attribute(:discord_linked_at, nil))
+    end
   end
 
   cloak do
@@ -90,6 +121,24 @@ defmodule WandererApp.Api.User do
 
       allow_nil?(true)
     end
+
+    # The Discord account this person has proved they control. It is deliberately on the user
+    # and not on a character: one person holds many characters, and the point of the link is to
+    # say who is behind them all.
+    attribute :discord_user_id, :string do
+      allow_nil?(true)
+      public? true
+    end
+
+    attribute :discord_username, :string do
+      allow_nil?(true)
+      public? true
+    end
+
+    attribute :discord_linked_at, :utc_datetime_usec do
+      allow_nil?(true)
+      public? true
+    end
   end
 
   relationships do
@@ -101,6 +150,13 @@ defmodule WandererApp.Api.User do
   identities do
     identity :unique_hash, [:hash] do
       pre_check?(false)
+    end
+
+    # A Discord account belongs to at most one person here, so a second person cannot claim
+    # an identity that is already spoken for.
+    identity :unique_discord_user_id, [:discord_user_id] do
+      pre_check?(true)
+      nils_distinct?(true)
     end
   end
 end
