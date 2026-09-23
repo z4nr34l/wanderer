@@ -566,6 +566,7 @@
               <div :if={@active_settings_tab == "bridges"} class="p-6">
                 <h2 class="text-lg font-semibold mb-2">Jump bridges</h2>
                 <p class="text-sm text-stone-400 mb-4">
+                  Read the corporation's Ansiblex gates straight from EVE, or paste a list.
                   Bridges are counted when a route is worked out, and are not drawn on the map.
                   A bridge marked dangerous is skipped for anyone who has "Avoid dangerous bridges"
                   set in the route settings; "Use jump bridges" there turns all of them off.
@@ -591,8 +592,11 @@
                     label="Mark everything in this paste as dangerous"
                   />
 
-                  <div>
+                  <div class="flex items-center gap-2">
                     <.button type="submit">Import</.button>
+                    <.button type="button" class="btn-secondary" phx-click="fetch_bridges">
+                      Read from EVE
+                    </.button>
                   </div>
                 </.form>
 

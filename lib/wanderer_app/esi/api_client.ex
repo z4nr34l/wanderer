@@ -209,6 +209,20 @@ defmodule WandererApp.Esi.ApiClient do
   def get_corporation_contacts(corporation_id, opts \\ []),
     do: get_corporation_auth_data(corporation_id, "contacts", opts)
 
+  @doc """
+  A page of the corporation's structures. Needs `esi-corporations.read_structures.v1` and the
+  Station Manager role; ESI answers 403 without either.
+  """
+  def get_corporation_structures(corporation_id, opts \\ []) do
+    page = Keyword.get(opts, :page, 1)
+
+    get_corporation_auth_data(
+      corporation_id,
+      "structures",
+      Keyword.put(opts, :params, [{:page, page}])
+    )
+  end
+
   def get_corporation_wallets(corporation_id, opts \\ []),
     do: get_corporation_auth_data(corporation_id, "wallets", opts)
 

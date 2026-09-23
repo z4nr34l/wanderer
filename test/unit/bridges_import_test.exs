@@ -75,6 +75,25 @@ defmodule WandererApp.Map.BridgesImportTest do
     assert [_pair] = Bridges.route_pairs(map.id, %{avoid_dangerous_bridges: false})
   end
 
+  describe "far_side/2" do
+    test "the far side is the system the gate does not sit in" do
+      assert {:ok, @onedq} = Bridges.far_side("UALX-3 » 1DQ1-A", @ualx)
+      assert {:ok, @ualx} = Bridges.far_side("UALX-3 » 1DQ1-A", @onedq)
+    end
+
+    test "a gate whose name hides the far side is not guessed at" do
+      assert :error = Bridges.far_side("Big Gate", @ualx)
+      assert :error = Bridges.far_side("UALX-3 » NOWHERE", @ualx)
+      assert :error = Bridges.far_side("", @ualx)
+    end
+  end
+
+  describe "fetch/2" do
+    test "a character with no corporation cannot read structures", %{map: map} do
+      assert {:error, :no_corporation} = Bridges.fetch(map.id, %{corporation_id: nil})
+    end
+  end
+
   test "the flag can be flipped and the bridge forgotten", %{map: map} do
     {:ok, _} = Bridges.import(map.id, "UALX-3 » 1DQ1-A")
     [bridge] = Bridges.list(map.id)

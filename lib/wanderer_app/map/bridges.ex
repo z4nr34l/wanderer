@@ -17,6 +17,10 @@ defmodule WandererApp.Map.Bridges do
   # longest first: an arrow that starts with the same characters as a shorter one must win
   @separators ["<->", "<=>", "»", ">>", "->", "=>", "—", "–", " - ", "|", ",", ";", "\t"]
 
+  # what an Ansiblex is, and where the far side of one is written down
+  @ansiblex_type_id 35_841
+  @structure_pages 10
+
   @type pair :: %{source: String.t(), target: String.t()}
 
   @doc """
@@ -125,6 +129,48 @@ defmodule WandererApp.Map.Bridges do
   end
 
   @doc """
+  Reads the corporation's Ansiblex gates from EVE and stores the ones it can place.
+
+  A gate knows the system it sits in; the far side is only written in its name, which is why a
+  gate named in some other way comes back as something this could not read rather than a guess.
+  Bridges already stored keep the dangerous flag they were given.
+  """
+  @spec fetch(String.t(), map()) ::
+          {:ok,
+           %{imported: non_neg_integer(), known: non_neg_integer(), unreadable: [String.t()]}}
+          | {:error, atom()}
+  def fetch(map_id, %{corporation_id: corporation_id} = character)
+      when not is_nil(corporation_id) do
+    opts = [access_token: character.access_token, character_id: character.id]
+
+    case read_structure_pages(corporation_id, opts, 1, []) do
+      {:ok, structures} ->
+        {:ok, store_structures(map_id, structures)}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def fetch(_map_id, _character), do: {:error, :no_corporation}
+
+  @doc """
+  The far side of a gate: the system its name points at, which is the one it does not sit in.
+  """
+  @spec far_side(String.t(), integer()) :: {:ok, integer()} | :error
+  def far_side(name, system_id) when is_binary(name) and is_integer(system_id) do
+    with {:ok, %{source: source, target: target}} <- parse_line(name),
+         ids <- Enum.map([source, target], &system_id_or_nil/1),
+         [far] <- Enum.filter(ids, &(not is_nil(&1) and &1 != system_id)) do
+      {:ok, far}
+    else
+      _ -> :error
+    end
+  end
+
+  def far_side(_name, _system_id), do: :error
+
+  @doc """
   Forgets one bridge.
   """
   @spec delete(String.t()) :: :ok | :error
@@ -147,6 +193,78 @@ defmodule WandererApp.Map.Bridges do
       :ok
     else
       _ -> :error
+    end
+  end
+
+  defp store_structures(map_id, structures) do
+    structures
+    |> Enum.filter(&(Map.get(&1, "type_id") == @ansiblex_type_id))
+    |> Enum.reduce(%{imported: 0, known: 0, unreadable: []}, fn structure, acc ->
+      name = Map.get(structure, "name", "")
+      system_id = Map.get(structure, "system_id")
+
+      case far_side(name, system_id) do
+        {:ok, far_id} ->
+          if stored?(map_id, system_id, far_id) do
+            %{acc | known: acc.known + 1}
+          else
+            case store(map_id, system_id, far_id, false) do
+              :ok -> %{acc | imported: acc.imported + 1}
+              :error -> %{acc | unreadable: acc.unreadable ++ [name]}
+            end
+          end
+
+        :error ->
+          %{acc | unreadable: acc.unreadable ++ [name]}
+      end
+    end)
+  end
+
+  defp stored?(map_id, source_id, target_id) do
+    {first, second} = {min(source_id, target_id), max(source_id, target_id)}
+
+    case MapBridge.by_map_and_systems(%{
+           map_id: map_id,
+           solar_system_source: first,
+           solar_system_target: second
+         }) do
+      {:ok, [_bridge | _]} -> true
+      _ -> false
+    end
+  end
+
+  defp read_structure_pages(_corporation_id, _opts, page, acc) when page > @structure_pages do
+    Logger.debug(fn -> "[Bridges] stopped reading structures after #{@structure_pages} pages" end)
+    {:ok, acc}
+  end
+
+  defp read_structure_pages(corporation_id, opts, page, acc) do
+    case WandererApp.Esi.get_corporation_structures(
+           corporation_id,
+           Keyword.put(opts, :page, page)
+         ) do
+      {:ok, []} ->
+        {:ok, acc}
+
+      {:ok, structures} when is_list(structures) ->
+        read_structure_pages(corporation_id, opts, page + 1, acc ++ structures)
+
+      {:error, :forbidden} ->
+        {:error, :no_access}
+
+      {:error, reason} ->
+        Logger.warning(fn -> "[Bridges] could not read structures: #{inspect(reason)}" end)
+        {:error, :esi_unavailable}
+
+      _ ->
+        {:error, :esi_unavailable}
+    end
+  end
+
+  defp system_id_or_nil(name) do
+    case system_id(name) do
+      {:ok, id} -> id
+      _ -> nil
     end
   end
 

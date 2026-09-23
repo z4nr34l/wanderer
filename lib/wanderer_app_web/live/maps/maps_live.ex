@@ -590,6 +590,20 @@ defmodule WandererAppWeb.MapsLive do
      )}
   end
 
+  def handle_event(
+        "fetch_bridges",
+        _params,
+        %{assigns: %{map: map, current_user: current_user}} = socket
+      ) do
+    status =
+      case WandererApp.Maps.get_tracked_map_characters(map.id, current_user) do
+        {:ok, [_ | _] = characters} -> fetch_bridges(map.id, characters)
+        _ -> {:error, "Track a character on this map first."}
+      end
+
+    {:noreply, socket |> assign(bridges: bridge_rows(map.id), bridges_status: status)}
+  end
+
   def handle_event("delete_bridge", %{"id" => bridge_id}, %{assigns: %{map: map}} = socket) do
     WandererApp.Map.Bridges.delete(bridge_id)
 
@@ -978,6 +992,44 @@ defmodule WandererAppWeb.MapsLive do
       {:noreply, socket}
     end
   end
+
+  # any tracked character may be the one with the role, so they are tried in turn and the last
+  # refusal is what gets reported
+  defp fetch_bridges(map_id, characters) do
+    Enum.reduce_while(
+      characters,
+      {:error, "No character could read the structures."},
+      fn character, last ->
+        case WandererApp.Map.Bridges.fetch(map_id, character) do
+          {:ok, %{imported: imported, known: known, unreadable: unreadable}} ->
+            {:halt, {:ok, fetch_summary(imported, known, unreadable)}}
+
+          {:error, reason} ->
+            {:cont, {:error, bridge_error(reason), last}}
+        end
+      end
+    )
+    |> case do
+      {:error, message, _last} -> {:error, message}
+      other -> other
+    end
+  end
+
+  defp fetch_summary(imported, known, unreadable) do
+    trouble =
+      if unreadable == [],
+        do: "",
+        else: " - #{length(unreadable)} gate(s) named in a way that hides the far side"
+
+    "Read from EVE: #{imported} new, #{known} already known#{trouble}."
+  end
+
+  defp bridge_error(:no_access),
+    do: "EVE refused: the character needs the Station Manager role, and asset access re-granted."
+
+  defp bridge_error(:no_corporation), do: "That character has no corporation."
+  defp bridge_error(:esi_unavailable), do: "EVE did not answer."
+  defp bridge_error(_reason), do: "Could not read the structures."
 
   # the tab shows names, not ids - a list of numbers tells nobody which bridge is which
   defp bridge_rows(map_id) do
