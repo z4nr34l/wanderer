@@ -183,6 +183,9 @@ defmodule WandererAppWeb.MapsLive do
           selected_subscription: nil,
           options_form: options_form_data |> to_form(),
           map_system_options: map_system_options(map.id),
+          bridges: bridge_rows(map.id),
+          bridges_form: %{"bridges" => "", "dangerous" => false} |> to_form(),
+          bridges_status: nil,
           discord_form:
             %{
               "discord_webhook_url" => map.discord_webhook_url || "",
@@ -568,6 +571,44 @@ defmodule WandererAppWeb.MapsLive do
     end
   end
 
+  def handle_event(
+        "import_bridges",
+        %{"bridges" => text} = params,
+        %{assigns: %{map: map}} = socket
+      ) do
+    dangerous = params["dangerous"] in ["true", true, "on"]
+
+    {:ok, %{imported: imported, unknown: unknown, unreadable: unreadable}} =
+      WandererApp.Map.Bridges.import(map.id, text, dangerous: dangerous)
+
+    {:noreply,
+     socket
+     |> assign(
+       bridges: bridge_rows(map.id),
+       bridges_form: %{"bridges" => "", "dangerous" => dangerous} |> to_form(),
+       bridges_status: import_status(imported, unknown, unreadable)
+     )}
+  end
+
+  def handle_event("delete_bridge", %{"id" => bridge_id}, %{assigns: %{map: map}} = socket) do
+    WandererApp.Map.Bridges.delete(bridge_id)
+
+    {:noreply, socket |> assign(bridges: bridge_rows(map.id), bridges_status: nil)}
+  end
+
+  def handle_event(
+        "toggle_bridge_dangerous",
+        %{"id" => bridge_id},
+        %{assigns: %{map: map, bridges: bridges}} = socket
+      ) do
+    case Enum.find(bridges, &(&1.id == bridge_id)) do
+      nil -> :ok
+      bridge -> WandererApp.Map.Bridges.set_dangerous(bridge_id, not bridge.dangerous)
+    end
+
+    {:noreply, socket |> assign(bridges: bridge_rows(map.id), bridges_status: nil)}
+  end
+
   def handle_event("test_discord", _params, %{assigns: %{map: map}} = socket) do
     status =
       case WandererApp.Map.HomeRoutesNotifier.deliver(map.id) do
@@ -935,6 +976,44 @@ defmodule WandererAppWeb.MapsLive do
       send_update(LiveSelect.Component, options: socket.assigns.acls, id: id)
 
       {:noreply, socket}
+    end
+  end
+
+  # the tab shows names, not ids - a list of numbers tells nobody which bridge is which
+  defp bridge_rows(map_id) do
+    map_id
+    |> WandererApp.Map.Bridges.list()
+    |> Enum.map(fn bridge ->
+      %{
+        id: bridge.id,
+        dangerous: bridge.dangerous,
+        source_name: system_name(bridge.solar_system_source),
+        target_name: system_name(bridge.solar_system_target)
+      }
+    end)
+    |> Enum.sort_by(& &1.source_name)
+  end
+
+  defp system_name(solar_system_id) do
+    case WandererApp.CachedInfo.get_system_static_info(solar_system_id) do
+      {:ok, %{solar_system_name: name}} -> name
+      _ -> "#{solar_system_id}"
+    end
+  end
+
+  defp import_status(imported, unknown, unreadable) do
+    trouble =
+      [
+        unknown != [] && "unknown systems: #{Enum.join(Enum.take(unknown, 5), ", ")}",
+        unreadable != [] && "could not read #{length(unreadable)} line(s)"
+      ]
+      |> Enum.filter(&is_binary/1)
+
+    case {imported, trouble} do
+      {0, []} -> {:error, "Nothing to import."}
+      {0, trouble} -> {:error, Enum.join(trouble, "; ")}
+      {count, []} -> {:ok, "Imported #{count} bridge(s)."}
+      {count, trouble} -> {:ok, "Imported #{count} bridge(s) - #{Enum.join(trouble, "; ")}"}
     end
   end
 

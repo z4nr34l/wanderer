@@ -419,6 +419,30 @@
                   </a>
                 </li>
                 <li
+                  class={[
+                    "p-unselectable-text",
+                    classes("p-tabview-selected p-highlight": @active_settings_tab == "bridges")
+                  ]}
+                  role="presentation"
+                  data-pc-name=""
+                  data-pc-section="header"
+                >
+                  <a
+                    role="tab"
+                    class="p-tabview-nav-link flex p-[10px]"
+                    tabindex="-1"
+                    aria-selected="false"
+                    aria-disabled="false"
+                    data-pc-section="headeraction"
+                    phx-click="change_settings_tab"
+                    phx-value-tab="bridges"
+                  >
+                    <span class="p-tabview-title" data-pc-section="headertitle">
+                      <.icon name="hero-arrows-right-left-solid" class="w-4 h-4" />&nbsp;Bridges
+                    </span>
+                  </a>
+                </li>
+                <li
                   :if={@map_subscriptions_enabled?}
                   class={[
                     "p-unselectable-text",
@@ -537,6 +561,101 @@
                 >
                   <.icon name="hero-document-arrow-down-solid" class="w-4 h-4" /> Export Settings
                 </.button>
+              </div>
+
+              <div :if={@active_settings_tab == "bridges"} class="p-6">
+                <h2 class="text-lg font-semibold mb-2">Jump bridges</h2>
+                <p class="text-sm text-stone-400 mb-4">
+                  Bridges are counted when a route is worked out, and are not drawn on the map.
+                  A bridge marked dangerous is skipped for anyone who has "Avoid dangerous bridges"
+                  set in the route settings; "Use jump bridges" there turns all of them off.
+                </p>
+
+                <.form
+                  :let={f}
+                  for={@bridges_form}
+                  phx-submit="import_bridges"
+                  class="flex flex-col gap-3"
+                >
+                  <.input
+                    type="textarea"
+                    field={f[:bridges]}
+                    label="Paste the list"
+                    rows="8"
+                    placeholder={"UALX-3 » 1DQ1-A\nT5ZI-S -> 1DQ1-A"}
+                  />
+
+                  <.input
+                    type="checkbox"
+                    field={f[:dangerous]}
+                    label="Mark everything in this paste as dangerous"
+                  />
+
+                  <div>
+                    <.button type="submit">Import</.button>
+                  </div>
+                </.form>
+
+                <p
+                  :if={@bridges_status}
+                  class={[
+                    "text-sm mt-3",
+                    classes(
+                      "text-emerald-400": elem(@bridges_status, 0) == :ok,
+                      "text-red-400": elem(@bridges_status, 0) == :error
+                    )
+                  ]}
+                >
+                  {elem(@bridges_status, 1)}
+                </p>
+
+                <div class="mt-5">
+                  <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-sm font-semibold">
+                      On this map: {length(@bridges)}
+                    </h3>
+                  </div>
+
+                  <p :if={@bridges == []} class="text-sm text-stone-400">
+                    Nothing imported yet.
+                  </p>
+
+                  <table :if={@bridges != []} class="w-full text-sm">
+                    <tbody>
+                      <tr :for={bridge <- @bridges} class="border-b border-stone-800">
+                        <td class="py-1">
+                          {bridge.source_name} » {bridge.target_name}
+                        </td>
+                        <td class="py-1 w-32 text-right">
+                          <button
+                            type="button"
+                            class={[
+                              "px-2 py-0.5 rounded border text-[11px] uppercase tracking-wide",
+                              if(bridge.dangerous,
+                                do: "border-red-400 text-red-300",
+                                else: "border-stone-600 text-stone-400"
+                              )
+                            ]}
+                            phx-click="toggle_bridge_dangerous"
+                            phx-value-id={bridge.id}
+                          >
+                            {if bridge.dangerous, do: "dangerous", else: "safe"}
+                          </button>
+                        </td>
+                        <td class="py-1 w-10 text-right">
+                          <button
+                            type="button"
+                            class="text-stone-500 hover:text-red-400"
+                            phx-click="delete_bridge"
+                            phx-value-id={bridge.id}
+                          >
+                            <.icon name="hero-trash-solid" class="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               <div :if={@active_settings_tab == "discord"} class="p-6">

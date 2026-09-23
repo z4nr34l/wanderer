@@ -16,6 +16,7 @@ defmodule WandererApp.Map.Routes do
     avoid_edencom: false,
     avoid_triglavian: false,
     avoid_dangerous_bridges: false,
+    include_bridges: true,
     avoid_bubbled_connections: false,
     include_thera: true,
     avoid: []
@@ -131,7 +132,10 @@ defmodule WandererApp.Map.Routes do
                 {:ok, []}
             end
 
-          chains = remove_intersection([map_chains | thera_chains] |> List.flatten())
+          bridges = WandererApp.Map.Bridges.route_pairs(map_id, routes_settings)
+
+          chains =
+            remove_intersection([map_chains | [bridges | thera_chains]] |> List.flatten())
 
           chains =
             case routes_settings.include_cruise do
