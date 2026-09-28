@@ -814,7 +814,9 @@ defmodule WandererAppWeb.MapsLive do
            mass_status: mass_status,
            time_status: time_status,
            ship_size_type: ship_size_type,
-           locked: locked
+           locked: locked,
+           dangerous: dangerous,
+           bubbled: bubbled
          } = _connection
        ),
        do: %{
@@ -823,6 +825,8 @@ defmodule WandererAppWeb.MapsLive do
          time_status: time_status,
          ship_size_type: ship_size_type,
          locked: locked,
+         dangerous: dangerous,
+         bubbled: bubbled,
          source: "#{solar_system_source}",
          target: "#{solar_system_target}"
        }

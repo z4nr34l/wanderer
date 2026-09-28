@@ -612,7 +612,7 @@ defmodule WandererApp.Map.Server.Impl do
                       "mass_status" => mass_status,
                       "time_status" => time_status,
                       "ship_size_type" => ship_size_type
-                    } ->
+                    } = connection ->
       source_id = source |> String.to_integer()
       target_id = target |> String.to_integer()
 
@@ -638,6 +638,31 @@ defmodule WandererApp.Map.Server.Impl do
         solar_system_target_id: target_id,
         ship_size_type: ship_size_type
       })
+
+      # a document written before these existed simply does not carry them
+      case Map.get(connection, "dangerous") do
+        nil ->
+          :ok
+
+        dangerous ->
+          update_connection_dangerous(map_id, %{
+            solar_system_source_id: source_id,
+            solar_system_target_id: target_id,
+            dangerous: dangerous
+          })
+      end
+
+      case Map.get(connection, "bubbled") do
+        nil ->
+          :ok
+
+        bubbled ->
+          update_connection_bubbled(map_id, %{
+            solar_system_source_id: source_id,
+            solar_system_target_id: target_id,
+            bubbled: bubbled
+          })
+      end
     end)
   end
 
