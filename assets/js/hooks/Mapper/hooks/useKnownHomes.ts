@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { OutCommand, OutCommandHandler } from '@/hooks/Mapper/types';
 
 export type KnownHome = {
-  map_id: string;
+  map_id?: string;
+  share_id?: string;
   map_name: string;
   map_slug: string;
   solar_system_id: number;
+  'remote?'?: boolean;
 };
 
 export type HomeNode = {
@@ -66,7 +68,9 @@ export const useKnownHomes = (outCommand: OutCommandHandler) => {
   const waysIn = useCallback(async (home: KnownHome) => {
     const res = await ref.current.outCommand<HomeWaysIn & { error?: string }>({
       type: OutCommand.getHomeWaysIn,
-      data: { map_id: home.map_id, solar_system_id: home.solar_system_id },
+      data: home.share_id
+        ? { share_id: home.share_id }
+        : { map_id: home.map_id, solar_system_id: home.solar_system_id },
     });
 
     return res?.error ? undefined : res;

@@ -184,6 +184,10 @@ defmodule WandererAppWeb.MapsLive do
           options_form: options_form_data |> to_form(),
           map_system_options: map_system_options(map.id),
           bridges: bridge_rows(map.id),
+          home_shares: WandererApp.Map.HomeShares.list(map.id),
+          home_share_form:
+            %{"label" => "", "base_url" => "", "slug" => "", "token" => ""} |> to_form(),
+          home_share_status: nil,
           bridges_form: %{"bridges" => "", "dangerous" => false} |> to_form(),
           bridges_status: nil,
           discord_form:
@@ -569,6 +573,55 @@ defmodule WandererAppWeb.MapsLive do
          |> put_flash(:error, "Failed to delete map. Please try again.")
          |> assign(:maps, AsyncResult.ok(maps))}
     end
+  end
+
+  def handle_event("generate_home_share", _params, %{assigns: %{map: map}} = socket) do
+    token = 32 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
+
+    case WandererApp.Api.Map.update_home_share_token(map, %{home_share_token: token}) do
+      {:ok, updated} ->
+        {:noreply, socket |> assign(map: updated, home_share_status: {:ok, "Sharing is on."})}
+
+      _ ->
+        {:noreply, socket |> assign(home_share_status: {:error, "Could not turn sharing on."})}
+    end
+  end
+
+  def handle_event("revoke_home_share", _params, %{assigns: %{map: map}} = socket) do
+    case WandererApp.Api.Map.update_home_share_token(map, %{home_share_token: nil}) do
+      {:ok, updated} ->
+        {:noreply,
+         socket
+         |> assign(map: updated, home_share_status: {:ok, "Sharing is off - the token is dead."})}
+
+      _ ->
+        {:noreply, socket |> assign(home_share_status: {:error, "Could not turn sharing off."})}
+    end
+  end
+
+  def handle_event("add_home_share", params, %{assigns: %{map: map}} = socket) do
+    status =
+      case WandererApp.Map.HomeShares.add(map.id, params) do
+        {:ok, share} -> {:ok, "Added #{share.label}."}
+        {:error, reason} -> {:error, home_share_error(reason)}
+      end
+
+    {:noreply,
+     socket
+     |> assign(
+       home_shares: WandererApp.Map.HomeShares.list(map.id),
+       home_share_form:
+         %{"label" => "", "base_url" => "", "slug" => "", "token" => ""} |> to_form(),
+       home_share_status: status
+     )}
+  end
+
+  def handle_event("delete_home_share", %{"id" => share_id}, %{assigns: %{map: map}} = socket) do
+    WandererApp.Map.HomeShares.delete(share_id)
+
+    {:noreply,
+     socket
+     |> assign(home_shares: WandererApp.Map.HomeShares.list(map.id), home_share_status: nil)}
   end
 
   def handle_event(
@@ -1072,6 +1125,13 @@ defmodule WandererAppWeb.MapsLive do
       {count, trouble} -> {:ok, "Imported #{count} bridge(s) - #{Enum.join(trouble, "; ")}"}
     end
   end
+
+  defp home_share_error(:forbidden), do: "That token is not the one that map is sharing."
+  defp home_share_error(:not_shared), do: "That map is not sharing its home."
+  defp home_share_error(:no_such_map), do: "No map with that slug over there."
+  defp home_share_error(:unreachable), do: "Could not reach that instance."
+  defp home_share_error(:invalid), do: "A slug and a token are needed."
+  defp home_share_error(_reason), do: "Could not read that share."
 
   defp discord_error(:no_webhook), do: "Save a webhook URL first."
 

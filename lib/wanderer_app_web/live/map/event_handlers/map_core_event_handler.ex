@@ -317,7 +317,33 @@ defmodule WandererAppWeb.MapCoreEventHandler do
         _params,
         %{assigns: %{map_id: map_id, current_user: current_user}} = socket
       ),
-      do: {:reply, %{homes: WandererApp.Map.Homes.known(current_user, map_id)}, socket}
+      do:
+        {:reply,
+         %{
+           homes:
+             WandererApp.Map.Homes.known(current_user, map_id) ++
+               WandererApp.Map.HomeShares.homes(map_id)
+         }, socket}
+
+  # a home somebody shared, whether it lives here or on another instance
+  def handle_ui_event("get_home_ways_in", %{"share_id" => share_id}, socket)
+      when is_binary(share_id) do
+    case WandererApp.Map.HomeShares.ways_in(share_id) do
+      {:ok, %{"home" => home, "ways_in" => ways_in}} ->
+        {:reply,
+         %{
+           home: %{
+             map_name: Map.get(home, "map_name"),
+             map_slug: Map.get(home, "map_slug"),
+             solar_system_id: Map.get(home, "solar_system_id")
+           },
+           ways_in: ways_in
+         }, socket}
+
+      {:error, reason} ->
+        {:reply, %{error: to_string(reason)}, socket}
+    end
+  end
 
   def handle_ui_event(
         "get_home_ways_in",

@@ -57,6 +57,8 @@ defmodule WandererApp.Api.Map do
     define(:update_options, action: :update_options)
     define(:update_discord_settings, action: :update_discord_settings)
     define(:update_discord_digest, action: :update_discord_digest)
+    define(:update_home_share_token, action: :update_home_share_token)
+    define(:by_home_share_token, action: :by_home_share_token, args: [:home_share_token])
     define(:update_system_labels, action: :update_system_labels)
     define(:assign_owner, action: :assign_owner)
     define(:mark_as_deleted, action: :mark_as_deleted)
@@ -205,6 +207,17 @@ defmodule WandererApp.Api.Map do
     update :update_discord_settings do
       accept [:discord_webhook_url, :home_solar_system_id]
       require_atomic? false
+    end
+
+    update :update_home_share_token do
+      accept [:home_share_token]
+      require_atomic? false
+    end
+
+    read :by_home_share_token do
+      argument(:home_share_token, :string, allow_nil?: false)
+
+      filter(expr(home_share_token == ^arg(:home_share_token) and not is_nil(home_share_token)))
     end
 
     update :update_discord_digest do
@@ -376,7 +389,10 @@ defmodule WandererApp.Api.Map do
 
     attribute :system_labels, :string do
       allow_nil?(false)
-      default("[{\"id\":\"a\",\"name\":\"A\",\"color\":\"#2d803b\"},{\"id\":\"b\",\"name\":\"B\",\"color\":\"#3d94af\"},{\"id\":\"c\",\"name\":\"C\",\"color\":\"#3d94af\"},{\"id\":\"1\",\"name\":\"1\",\"color\":\"#563daf\"},{\"id\":\"2\",\"name\":\"2\",\"color\":\"#8f3daf\"},{\"id\":\"3\",\"name\":\"3\",\"color\":\"#3d65af\"}]")
+
+      default(
+        "[{\"id\":\"a\",\"name\":\"A\",\"color\":\"#2d803b\"},{\"id\":\"b\",\"name\":\"B\",\"color\":\"#3d94af\"},{\"id\":\"c\",\"name\":\"C\",\"color\":\"#3d94af\"},{\"id\":\"1\",\"name\":\"1\",\"color\":\"#563daf\"},{\"id\":\"2\",\"name\":\"2\",\"color\":\"#8f3daf\"},{\"id\":\"3\",\"name\":\"3\",\"color\":\"#3d65af\"}]"
+      )
     end
 
     attribute :scope, :atom do
@@ -418,6 +434,13 @@ defmodule WandererApp.Api.Map do
     attribute :home_solar_system_id, :integer do
       allow_nil?(true)
       default(nil)
+    end
+
+    # set when the owner shares this map's home; whoever holds it may read the way in
+    attribute :home_share_token, :string do
+      allow_nil?(true)
+      default(nil)
+      constraints(max_length: 64)
     end
 
     # what the last announcement said, so a restart does not repeat it
