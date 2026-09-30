@@ -89,22 +89,68 @@ defmodule WandererApp.Map.Homes do
 
       {ids, edges} = paths_in(mouth_ids, parents, home_solar_system_id)
 
+      on_the_way = MapSet.new(ids)
+
       %{
-        nodes:
-          ids
-          |> Enum.map(
-            &describe(&1, Map.get(depths, &1, 0), &1 == home_solar_system_id, &1 in mouth_ids)
-          )
-          |> Enum.reject(&is_nil/1)
-          |> Enum.sort_by(&{&1.holes, &1.name}),
-        edges: edges
+        systems:
+          systems
+          |> Enum.filter(&MapSet.member?(on_the_way, &1.solar_system_id))
+          |> Enum.sort_by(&{Map.get(depths, &1.solar_system_id, 0), &1.name}),
+        connections: Enum.filter(connections, &edge?(&1, edges)),
+        markers:
+          Map.new(ids, fn solar_system_id ->
+            {solar_system_id,
+             %{
+               holes: Map.get(depths, solar_system_id, 0),
+               home?: solar_system_id == home_solar_system_id,
+               mouth?: solar_system_id in mouth_ids
+             }}
+          end)
       }
     else
-      _ -> %{nodes: [], edges: []}
+      _ -> empty()
     end
   end
 
-  def ways_in(_map_id, _home), do: %{nodes: [], edges: []}
+  @doc """
+  Turns what `ways_in/2` selected into what goes over the wire.
+
+  The map already knows how to draw a system, so what a shared home hands over is the same shape
+  the map itself is given - the systems and the connections between them - with only the part
+  this feature adds on top: how many holes deep each system sits, and whether it is the home or a
+  way into it. Anything reading this draws it with the map's own renderer rather than one of its
+  own.
+  """
+  @spec to_wire(map()) :: map()
+  def to_wire(%{systems: systems, connections: connections, markers: markers}) do
+    %{
+      "systems" => Enum.map(systems, &WandererAppWeb.MapEventHandler.map_ui_system/1),
+      "connections" => Enum.map(connections, &WandererAppWeb.MapEventHandler.map_ui_connection/1),
+      "markers" =>
+        Map.new(markers, fn {solar_system_id, marker} ->
+          {to_string(solar_system_id),
+           %{
+             "holes" => marker.holes,
+             "home" => marker[:home?],
+             "mouth" => marker[:mouth?]
+           }}
+        end)
+    }
+  end
+
+  def to_wire(_other), do: %{"systems" => [], "connections" => [], "markers" => %{}}
+
+  def ways_in(_map_id, _home), do: empty()
+
+  defp empty, do: %{systems: [], connections: [], markers: %{}}
+
+  defp edge?(%{solar_system_source: source, solar_system_target: target}, edges),
+    do:
+      Enum.any?(
+        edges,
+        &((&1.source == source and &1.target == target) or
+            (&1.source == target and &1.target == source))
+      )
 
   @doc """
   Walks back from every mouth to the home, collecting what is on the way.
@@ -175,20 +221,6 @@ defmodule WandererApp.Map.Homes do
     walk(neighbours, [home_solar_system_id], %{home_solar_system_id => 0}, %{}, 1)
   end
 
-  @doc """
-  Which kind of space a security number belongs to.
-  """
-  @spec class(number() | nil) :: :high | :low | :null
-  def class(security) when is_number(security) do
-    cond do
-      security >= @high_sec -> :high
-      security > 0.0 -> :low
-      true -> :null
-    end
-  end
-
-  def class(_security), do: :null
-
   defp walk(_neighbours, [], depths, parents, _depth), do: {depths, parents}
 
   defp walk(neighbours, frontier, depths, parents, depth) do
@@ -225,37 +257,6 @@ defmodule WandererApp.Map.Homes do
         end
     end
   end
-
-  defp describe(solar_system_id, holes, home?, mouth?) do
-    case WandererApp.CachedInfo.get_system_static_info(solar_system_id) do
-      {:ok, %{solar_system_name: name} = info} ->
-        security = to_number(Map.get(info, :security))
-
-        %{
-          solar_system_id: solar_system_id,
-          name: name,
-          class: if(j_space?(solar_system_id), do: :wormhole, else: class(security)),
-          security: security,
-          holes: holes,
-          home?: home?,
-          mouth?: mouth?
-        }
-
-      _ ->
-        nil
-    end
-  end
-
-  defp to_number(value) when is_number(value), do: value
-
-  defp to_number(value) when is_binary(value) do
-    case Float.parse(value) do
-      {number, _rest} -> number
-      :error -> nil
-    end
-  end
-
-  defp to_number(_value), do: nil
 
   defp j_space?(solar_system_id), do: solar_system_id >= @j_space_id
 

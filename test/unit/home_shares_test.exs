@@ -84,7 +84,7 @@ defmodule WandererApp.Map.HomeSharesTest do
 
       assert {:ok, %{"home" => home, "ways_in" => ways_in}} = HomeShares.ways_in(share_id)
       assert home["solar_system_id"] == @home
-      assert %{"nodes" => _, "edges" => _} = ways_in
+      assert %{"systems" => _, "connections" => _, "markers" => _} = ways_in
     end
   end
 

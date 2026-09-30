@@ -315,6 +315,8 @@ export enum OutCommand {
   getUserSettings = 'get_user_settings',
   exportMapData = 'export_map_data',
   importMapData = 'import_map_data',
+  pullMapData = 'pull_map_data',
+  previewMapData = 'preview_map_data',
   updateUserSettings = 'update_user_settings',
   getCharacterStandings = 'get_character_standings',
   getShipFit = 'get_ship_fit',

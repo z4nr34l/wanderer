@@ -155,7 +155,9 @@ defmodule WandererApp.Map.HomeShares do
         "solar_system_id" => map.home_solar_system_id
       },
       "ways_in" =>
-        map.id |> WandererApp.Map.Homes.ways_in(map.home_solar_system_id) |> stringify()
+        map.id
+        |> WandererApp.Map.Homes.ways_in(map.home_solar_system_id)
+        |> WandererApp.Map.Homes.to_wire()
     }
   end
 
@@ -228,16 +230,6 @@ defmodule WandererApp.Map.HomeShares do
         {:error, :unreachable}
     end
   end
-
-  # what comes back over the wire has string keys, so what comes from next door must too
-  defp stringify(%{nodes: nodes, edges: edges}) do
-    %{
-      "nodes" => Enum.map(nodes, &Map.new(&1, fn {key, value} -> {to_string(key), value} end)),
-      "edges" => Enum.map(edges, &Map.new(&1, fn {key, value} -> {to_string(key), value} end))
-    }
-  end
-
-  defp stringify(_other), do: %{"nodes" => [], "edges" => []}
 
   defp normalise_url(nil), do: ""
 

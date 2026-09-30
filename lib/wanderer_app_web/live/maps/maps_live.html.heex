@@ -629,8 +629,11 @@
                 <div class="rounded border border-stone-800 p-4">
                   <h3 class="text-sm font-semibold mb-2">Homes shared with this map</h3>
 
+                  <%!-- a new id on every change remounts the form, which is what clears the
+                  fields once a share has been taken --%>
                   <.form
                     :let={f}
+                    id={"home-share-form-#{length(@home_shares)}"}
                     for={@home_share_form}
                     phx-submit="add_home_share"
                     class="flex flex-col gap-2 mb-4"

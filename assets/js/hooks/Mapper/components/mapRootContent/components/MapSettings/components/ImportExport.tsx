@@ -12,6 +12,12 @@ import { WdButton } from '@/hooks/Mapper/components/ui-kit';
 import { Dialog } from 'primereact/dialog';
 import { WdCheckbox } from '@/hooks/Mapper/components/ui-kit/WdCheckbox';
 
+type MapSource = {
+  baseUrl: string;
+  slug: string;
+  token: string;
+};
+
 type PendingImport = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   document: any;
@@ -19,7 +25,26 @@ type PendingImport = {
   connections: number;
   signatures: number;
   hiddenSystems: number;
+  // where it came from, which is what the confirmation has to say out loud
+  from: string;
+  source: MapSource | null;
 };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const countOf = (document: any, key: string) => (Array.isArray(document?.[key]) ? document[key].length : 0);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const describe = (document: any, from: string, source: MapSource | null): PendingImport => ({
+  document,
+  from,
+  source,
+  systems: countOf(document, 'systems'),
+  connections: countOf(document, 'connections'),
+  signatures: countOf(document, 'signatures'),
+  hiddenSystems: Array.isArray(document?.systems)
+    ? document.systems.filter((system: { visible?: boolean }) => system?.visible === false).length
+    : 0,
+});
 
 export const ImportExport = () => {
   const {
@@ -32,6 +57,7 @@ export const ImportExport = () => {
   const [mapDataBusy, setMapDataBusy] = useState(false);
   const [includeSignatures, setIncludeSignatures] = useState(true);
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
+  const [source, setSource] = useState<MapSource>({ baseUrl: '', slug: '', token: '' });
 
   const handleImportFromClipboard = useCallback(async () => {
     const text = await navigator.clipboard.readText();
@@ -216,33 +242,75 @@ export const ImportExport = () => {
     }
 
     // the map is shared and an import cannot be undone, so the counts get confirmed first
-    setPendingImport({
-      document: parsed,
-      systems: Array.isArray(parsed?.systems) ? parsed.systems.length : 0,
-      connections: Array.isArray(parsed?.connections) ? parsed.connections.length : 0,
-      signatures: Array.isArray(parsed?.signatures) ? parsed.signatures.length : 0,
-      hiddenSystems: Array.isArray(parsed?.systems)
-        ? parsed.systems.filter((system: { visible?: boolean }) => system?.visible === false).length
-        : 0,
-    });
+    setPendingImport(describe(parsed, 'that file', null));
   }, []);
+
+  // Reading another map directly: the same import, only the document is fetched with that map's
+  // own API key instead of being carried around as a file.
+  const handleReadMap = useCallback(async () => {
+    if (source.slug.trim() === '' || source.token.trim() === '') {
+      toast.current?.show({
+        severity: 'warn',
+        summary: 'Import map',
+        detail: 'A map slug and its API key are needed.',
+        life: 3000,
+      });
+      return;
+    }
+
+    setMapDataBusy(true);
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const res: any = await outCommand({
+        type: OutCommand.previewMapData,
+        data: { base_url: source.baseUrl, slug: source.slug, token: source.token },
+      });
+
+      if (!res?.document) {
+        throw new Error(res?.error ?? 'Empty response');
+      }
+
+      setPendingImport(describe(res.document, source.baseUrl.trim() === '' ? source.slug : source.baseUrl, source));
+    } catch (error) {
+      console.error('Read map Error: ', error);
+
+      toast.current?.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: error instanceof Error ? error.message : 'Could not read that map.',
+        life: 4000,
+      });
+    } finally {
+      setMapDataBusy(false);
+    }
+  }, [outCommand, source]);
 
   const handleConfirmImport = useCallback(async () => {
     if (!pendingImport) {
       return;
     }
 
-    const { document } = pendingImport;
+    const { document, source: from } = pendingImport;
 
     setPendingImport(null);
     setMapDataBusy(true);
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const res: any = await outCommand({
-        type: OutCommand.importMapData,
-        data: { data: document, include_signatures: includeSignatures },
-      });
+      const res: any = await outCommand(
+        from
+          ? {
+              type: OutCommand.pullMapData,
+              data: {
+                base_url: from.baseUrl,
+                slug: from.slug,
+                token: from.token,
+                include_signatures: includeSignatures,
+              },
+            }
+          : { type: OutCommand.importMapData, data: { data: document, include_signatures: includeSignatures } },
+      );
 
       if (!res?.result) {
         throw new Error(res?.error ?? 'Empty response');
@@ -255,7 +323,7 @@ export const ImportExport = () => {
         summary: 'Import map',
         detail:
           systems + connections + signatures + hidden_systems + comments + structures === 0
-            ? 'Everything in that file was already on the map - nothing was added.'
+            ? 'Everything in that map was already on this one - nothing was added.'
             : [
                 `Added ${systems} systems, ${connections} connections, ${signatures} signatures`,
                 hidden_systems > 0 ? `${hidden_systems} systems off the map` : null,
@@ -272,8 +340,8 @@ export const ImportExport = () => {
       toast.current?.show({
         severity: 'error',
         summary: 'Error',
-        detail: 'Some error occurred on importing map data, check console log.',
-        life: 3000,
+        detail: error instanceof Error ? error.message : 'Some error occurred on importing map data.',
+        life: 4000,
       });
     } finally {
       setMapDataBusy(false);
@@ -303,7 +371,7 @@ export const ImportExport = () => {
   );
 
   return (
-    <div className="w-full h-full flex flex-col gap-5">
+    <div className="w-full h-full flex flex-col gap-5 overflow-y-auto pr-1">
       <div className="flex flex-col gap-1">
         <div>
           <SplitButton
@@ -339,24 +407,36 @@ export const ImportExport = () => {
 
       <div className="border-b-2 border-dotted border-stone-700/50 h-px" />
 
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2">
+        <span className="text-stone-200 text-[13px] font-semibold">Import a map</span>
+
+        <span className="text-stone-500 text-[12px]">
+          Reads another map where it lives, with the API key that map hands out. Systems - including the ones taken off
+          the map, notes and all - connections, signatures, comments and structures. What is already here is left alone.
+        </span>
+
+        <input
+          type="text"
+          value={source.baseUrl}
+          placeholder="Instance address, e.g. wanderer.ltd (empty for this one)"
+          onChange={e => setSource(current => ({ ...current, baseUrl: e.target.value }))}
+          className="w-full bg-stone-900 border border-stone-700 rounded px-2 py-1 text-[12px]"
+        />
+
         <div className="flex gap-2">
-          <WdButton
-            onClick={handleExportMapData}
-            icon="pi pi-cloud-download"
-            size="small"
-            label="Export map"
-            className="py-[4px]"
-            disabled={mapDataBusy}
+          <input
+            type="text"
+            value={source.slug}
+            placeholder="Map slug"
+            onChange={e => setSource(current => ({ ...current, slug: e.target.value }))}
+            className="w-1/3 bg-stone-900 border border-stone-700 rounded px-2 py-1 text-[12px]"
           />
-          <WdButton
-            onClick={handleImportMapData}
-            icon="pi pi-cloud-upload"
-            size="small"
-            severity="warning"
-            label="Import map"
-            className="py-[4px]"
-            disabled={mapDataBusy}
+          <input
+            type="password"
+            value={source.token}
+            placeholder="That map's API key"
+            onChange={e => setSource(current => ({ ...current, token: e.target.value }))}
+            className="flex-1 bg-stone-900 border border-stone-700 rounded px-2 py-1 text-[12px] font-mono"
           />
         </div>
 
@@ -366,11 +446,36 @@ export const ImportExport = () => {
           onChange={e => setIncludeSignatures(!!e.checked)}
         />
 
-        <span className="text-stone-500 text-[12px]">
-          *Map contents - systems (including the ones taken off the map, with their notes), connections, signatures,
-          comments and structures - as a file. Import adds what is missing, systems already on the map are left
-          untouched.
-        </span>
+        <div className="flex gap-2 items-center">
+          <WdButton
+            onClick={handleReadMap}
+            icon="pi pi-cloud-download"
+            size="small"
+            severity="warning"
+            label="Read that map"
+            className="py-[4px]"
+            disabled={mapDataBusy}
+          />
+
+          <WdButton
+            onClick={handleExportMapData}
+            icon="pi pi-file-export"
+            size="small"
+            outlined
+            label="Save this map to a file"
+            className="py-[4px]"
+            disabled={mapDataBusy}
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleImportMapData}
+          disabled={mapDataBusy}
+          className="self-start text-stone-500 hover:text-stone-300 text-[12px] underline"
+        >
+          or import from a file somebody sent you
+        </button>
       </div>
 
       <Dialog
@@ -382,12 +487,13 @@ export const ImportExport = () => {
       >
         <div className="flex flex-col gap-3">
           <span className="text-stone-200 text-[13px]">
-            This adds up to {pendingImport?.systems} systems, {pendingImport?.connections} connections and{' '}
-            {includeSignatures ? pendingImport?.signatures : 0} signatures to <b>{map_slug ?? 'this map'}</b>, for
-            everyone on the map. Systems already there are left alone, and an import cannot be undone.
+            From <b>{pendingImport?.from}</b>: up to {pendingImport?.systems} systems, {pendingImport?.connections}{' '}
+            connections and {includeSignatures ? pendingImport?.signatures : 0} signatures go onto{' '}
+            <b>{map_slug ?? 'this map'}</b>, for everyone on the map. Systems already there are left alone, and an
+            import cannot be undone.
             {(pendingImport?.hiddenSystems ?? 0) > 0 &&
-              ` ${pendingImport?.hiddenSystems} of those systems were off the map where the file came from; they
-                arrive off the map here too, carrying whatever was written about them.`}
+              ` ${pendingImport?.hiddenSystems} of those systems are off the map over there; they arrive off the map
+                here too, carrying whatever was written about them.`}
           </span>
 
           <div className="flex justify-end gap-2">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { OutCommand, OutCommandHandler } from '@/hooks/Mapper/types';
+import { OutCommand, OutCommandHandler, SolarSystemConnection, SolarSystemRawType } from '@/hooks/Mapper/types';
 
 export type KnownHome = {
   map_id?: string;
@@ -10,21 +10,17 @@ export type KnownHome = {
   'remote?'?: boolean;
 };
 
-export type HomeNode = {
-  solar_system_id: number;
-  name: string;
-  class: 'high' | 'low' | 'null' | 'wormhole';
-  security: number | null;
-  holes: number;
-  'home?': boolean;
-  'mouth?': boolean;
-};
-
-export type HomeEdge = { source: number; target: number };
+export type HomeMarker = { holes: number; home: boolean; mouth: boolean };
 
 export type HomeWaysIn = {
   home: { map_name: string; map_slug: string; solar_system_id: number };
-  ways_in: { nodes: HomeNode[]; edges: HomeEdge[] };
+  // the same shape the map is given for its own systems, so it can be drawn with the map's
+  // renderer rather than one written for this dialog
+  ways_in: {
+    systems: SolarSystemRawType[];
+    connections: SolarSystemConnection[];
+    markers: Record<string, HomeMarker>;
+  };
 };
 
 /**

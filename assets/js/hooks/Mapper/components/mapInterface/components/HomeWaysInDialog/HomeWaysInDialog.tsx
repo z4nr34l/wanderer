@@ -1,8 +1,17 @@
 import { Dialog } from 'primereact/dialog';
 import { useEffect, useMemo, useState } from 'react';
-import ReactFlow, { Background, Edge, Handle, Node, Position, ReactFlowProvider } from 'reactflow';
+import ReactFlow, { Background, ConnectionMode, ReactFlowProvider } from 'reactflow';
 import clsx from 'clsx';
-import { HomeNode, HomeWaysIn, KnownHome } from '@/hooks/Mapper/hooks/useKnownHomes.ts';
+
+import { MapProvider, useMapState } from '@/hooks/Mapper/components/map/MapProvider';
+import { SolarSystemEdge } from '@/hooks/Mapper/components/map/components/SolarSystemEdge';
+import { convertConnection2Edge, convertSystem2Node } from '@/hooks/Mapper/components/map/helpers';
+import { getBehaviorForTheme } from '@/hooks/Mapper/components/map/helpers/getThemeBehavior.ts';
+import { useMapRootState } from '@/hooks/Mapper/mapRootProvider';
+import { useLoadSystemStatic } from '@/hooks/Mapper/mapRootProvider/hooks/useLoadSystemStatic';
+import { HomeWaysIn, KnownHome } from '@/hooks/Mapper/hooks/useKnownHomes.ts';
+
+import classes from './HomeWaysInDialog.module.scss';
 
 type HomeWaysInDialogProps = {
   home: KnownHome | null;
@@ -10,74 +19,83 @@ type HomeWaysInDialogProps = {
   onHide: () => void;
 };
 
-const CLASS_COLOURS: Record<HomeNode['class'], string> = {
-  high: 'border-emerald-400 text-emerald-300',
-  low: 'border-amber-400 text-amber-300',
-  null: 'border-red-400 text-red-300',
-  wormhole: 'border-sky-400 text-sky-300',
-};
+const edgeTypes = { floating: SolarSystemEdge };
 
-// the home sits on the right, every hole out of it one step to the left, so a route reads the
-// way somebody flies it: in from the edge of the picture
-const COLUMN = 150;
-const ROW = 64;
+// Their chain is drawn with the map's own renderer, so a system looks here exactly as it looks on
+// the map it came from. The only thing added on top is which of them are the way in.
+const WaysIn = ({ waysIn }: { waysIn: HomeWaysIn['ways_in'] }) => {
+  const {
+    data: { wormholesData, effects, wormholes },
+  } = useMapRootState();
+  const { update } = useMapState();
 
-const layout = (ways: HomeWaysIn['ways_in']): { nodes: Node[]; edges: Edge[] } => {
-  const deepest = Math.max(...ways.nodes.map(node => node.holes), 0);
-  const perColumn: Record<number, number> = {};
+  const solarSystemIds = useMemo(() => waysIn.systems.map(system => system.id), [waysIn.systems]);
+  const { loading } = useLoadSystemStatic({ systems: solarSystemIds });
 
-  const nodes = ways.nodes.map(node => {
-    const column = deepest - node.holes;
-    const row = perColumn[node.holes] ?? 0;
-    perColumn[node.holes] = row + 1;
+  useEffect(() => {
+    // the node reads a system's statics and its effect out of the map state it sits in
+    update({
+      systems: waysIn.systems,
+      connections: waysIn.connections,
+      wormholesData,
+      wormholes,
+      effects,
+      visibleNodes: new Set(solarSystemIds),
+    });
+  }, [effects, solarSystemIds, update, waysIn, wormholes, wormholesData]);
 
-    return {
-      id: `${node.solar_system_id}`,
-      position: { x: column * COLUMN, y: row * ROW },
-      data: { label: node },
-      type: 'homeWay',
-      draggable: false,
-      connectable: false,
-    };
-  });
+  const { nodeComponent } = getBehaviorForTheme('default');
+  const nodeTypes = useMemo(() => ({ custom: nodeComponent }), [nodeComponent]);
 
-  const edges = ways.edges.map(edge => ({
-    id: `${edge.source}_${edge.target}`,
-    source: `${edge.source}`,
-    target: `${edge.target}`,
-    type: 'straight',
-    style: { stroke: '#57534e' },
-  }));
+  const nodes = useMemo(
+    () =>
+      waysIn.systems.map(system => {
+        const marker = waysIn.markers[system.id];
 
-  return { nodes, edges };
-};
+        return {
+          ...convertSystem2Node(system),
+          draggable: false,
+          deletable: false,
+          connectable: false,
+          className: clsx({
+            [classes.Home]: marker?.home,
+            [classes.WayIn]: marker?.mouth && !marker?.home,
+          }),
+        };
+      }),
+    [waysIn],
+  );
 
-const HomeWayNode = ({ data }: { data: { label: HomeNode } }) => {
-  const node = data.label;
+  const edges = useMemo(
+    () => waysIn.connections.map(connection => ({ ...convertConnection2Edge(connection), selectable: false })),
+    [waysIn],
+  );
+
+  if (loading) {
+    return <div className="text-sm text-stone-400 p-4">Reading their map...</div>;
+  }
 
   return (
-    <>
-      {/* the lines need somewhere to land, but the dots themselves would only add noise */}
-      <Handle type="target" position={Position.Right} isConnectable={false} className="!opacity-0" />
-      <Handle type="source" position={Position.Left} isConnectable={false} className="!opacity-0" />
-
-      <div
-        className={clsx(
-          'px-2 py-1 rounded border bg-stone-900/90 text-[11px] whitespace-nowrap',
-          CLASS_COLOURS[node.class],
-          { 'ring-1 ring-stone-200': node['home?'] },
-        )}
-      >
-        <div className="font-semibold">{node.name}</div>
-        <div className="text-stone-500">{node['home?'] ? 'home' : node['mouth?'] ? 'way in' : `${node.holes} in`}</div>
-      </div>
-    </>
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      connectionMode={ConnectionMode.Loose}
+      fitView
+      fitViewOptions={{ padding: 0.2 }}
+      nodesDraggable={false}
+      nodesConnectable={false}
+      elementsSelectable={false}
+      proOptions={{ hideAttribution: true }}
+    >
+      <Background color="#292524" gap={16} />
+    </ReactFlow>
   );
 };
 
-const nodeTypes = { homeWay: HomeWayNode };
-
 export const HomeWaysInDialog = ({ home, load, onHide }: HomeWaysInDialogProps) => {
+  const { outCommand } = useMapRootState();
   const [data, setData] = useState<HomeWaysIn | undefined>();
   const [loading, setLoading] = useState(false);
 
@@ -107,7 +125,7 @@ export const HomeWaysInDialog = ({ home, load, onHide }: HomeWaysInDialogProps) 
     };
   }, [home, load]);
 
-  const flow = useMemo(() => (data ? layout(data.ways_in) : { nodes: [], edges: [] }), [data]);
+  const hasChain = (data?.ways_in?.systems?.length ?? 0) > 0;
 
   return (
     <Dialog
@@ -115,39 +133,31 @@ export const HomeWaysInDialog = ({ home, load, onHide }: HomeWaysInDialogProps) 
       visible={home != null}
       draggable={false}
       resizable={false}
-      style={{ width: '720px' }}
+      style={{ width: '760px' }}
       onHide={onHide}
     >
       {home && (
         <div className="flex flex-col gap-2">
           <div className="text-xs text-stone-400">
-            Their chain, cut down to what leads in - every route from a hole in k-space to the home.
+            Their chain, cut down to what leads in - every route from a hole in k-space to the home. The home is ringed
+            in white, the ways in are ringed in green.
           </div>
 
           {loading && <div className="text-sm text-stone-400">Reading their map...</div>}
 
-          {!loading && flow.nodes.length <= 1 && (
+          {!loading && !hasChain && (
             <div className="text-sm text-stone-400">
               Nothing on their map leads in yet - no k-space system with a hole into the chain.
             </div>
           )}
 
-          {!loading && flow.nodes.length > 1 && (
-            <div className="h-[380px] w-full rounded border border-stone-800">
-              <ReactFlowProvider>
-                <ReactFlow
-                  nodes={flow.nodes}
-                  edges={flow.edges}
-                  nodeTypes={nodeTypes}
-                  fitView
-                  nodesDraggable={false}
-                  nodesConnectable={false}
-                  elementsSelectable={false}
-                  proOptions={{ hideAttribution: true }}
-                >
-                  <Background color="#292524" gap={16} />
-                </ReactFlow>
-              </ReactFlowProvider>
+          {!loading && hasChain && (
+            <div className="h-[420px] w-full rounded border border-stone-800">
+              <MapProvider onCommand={outCommand}>
+                <ReactFlowProvider>
+                  <WaysIn waysIn={data!.ways_in} />
+                </ReactFlowProvider>
+              </MapProvider>
             </div>
           )}
         </div>

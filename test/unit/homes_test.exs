@@ -101,22 +101,4 @@ defmodule WandererApp.Map.HomesTest do
       assert length(edges) == 3
     end
   end
-
-  describe "class/1" do
-    test "0.45 is high sec, because that is what the game rounds up" do
-      assert Homes.class(0.45) == :high
-      assert Homes.class(0.9) == :high
-    end
-
-    test "anything above zero but below that is low sec" do
-      assert Homes.class(0.4) == :low
-      assert Homes.class(0.1) == :low
-    end
-
-    test "zero and below is null" do
-      assert Homes.class(0.0) == :null
-      assert Homes.class(-0.99) == :null
-      assert Homes.class(nil) == :null
-    end
-  end
 end

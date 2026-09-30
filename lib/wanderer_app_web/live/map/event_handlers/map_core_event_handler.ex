@@ -274,35 +274,11 @@ defmodule WandererAppWeb.MapCoreEventHandler do
     end
   end
 
-  def handle_ui_event("export_map_data", _params, socket),
-    do: {:reply, %{error: "You don't have permission to export map data"}, socket}
-
-  def handle_ui_event("import_map_data", _params, socket),
-    do: {:reply, %{error: "You don't have permission to import map data"}, socket}
-
+  # Reading another map directly is the same import, only without a file in the middle: the
+  # document is fetched with that map's own API key and replayed by the same code.
   def handle_ui_event(
-        "export_map_data",
+        "pull_map_data",
         params,
-        %{assigns: %{map_id: map_id}} = socket
-      ) do
-    include_signatures = Map.get(params || %{}, "include_signatures", true)
-
-    case WandererApp.Map.Operations.Transfer.export(map_id,
-           include_signatures: include_signatures
-         ) do
-      {:ok, data} ->
-        {:reply, %{data: data}, socket}
-
-      {:error, error} ->
-        Logger.error(fn -> "Failed to export map #{map_id}: #{inspect(error)}" end)
-
-        {:reply, %{error: "Failed to export map data"}, socket}
-    end
-  end
-
-  def handle_ui_event(
-        "import_map_data",
-        %{"data" => data} = params,
         %{
           assigns: %{
             map_id: map_id,
@@ -316,25 +292,68 @@ defmodule WandererAppWeb.MapCoreEventHandler do
       when not is_nil(main_character_id) do
     include_signatures = Map.get(params, "include_signatures", true)
 
-    case WandererApp.Map.Operations.Transfer.import(
-           map_id,
-           data,
-           current_user_id,
-           main_character_id,
-           include_signatures: include_signatures
-         ) do
-      {:ok, stats} ->
-        {:reply, %{result: stats}, socket}
+    source = %{
+      base_url: Map.get(params, "base_url", ""),
+      slug: Map.get(params, "slug", ""),
+      token: Map.get(params, "token", "")
+    }
 
+    with {:ok, document} <- WandererApp.Map.Operations.Source.fetch(source),
+         {:ok, stats} <-
+           WandererApp.Map.Operations.Transfer.import(
+             map_id,
+             document,
+             current_user_id,
+             main_character_id,
+             include_signatures: include_signatures
+           ) do
+      {:reply, %{result: stats}, socket}
+    else
       {:error, {:unsupported_version, version}} ->
-        {:reply, %{error: "Unsupported export version: #{version}"}, socket}
+        {:reply, %{error: "That map speaks a version this one does not: #{version}"}, socket}
 
-      {:error, error} ->
-        Logger.error(fn -> "Failed to import map #{map_id}: #{inspect(error)}" end)
+      {:error, reason} when is_atom(reason) ->
+        {:reply, %{error: WandererApp.Map.Operations.Source.message(reason)}, socket}
 
-        {:reply, %{error: "Failed to import map data"}, socket}
+      error ->
+        Logger.error(fn -> "Failed to pull a map into #{map_id}: #{inspect(error)}" end)
+        {:reply, %{error: "Could not read that map"}, socket}
     end
   end
+
+  # Asking what a map holds before pulling it, so somebody can see the size of what they are
+  # about to add to a map everybody else is flying on.
+  def handle_ui_event(
+        "preview_map_data",
+        params,
+        %{assigns: %{user_permissions: %{add_system: true}}} = socket
+      ) do
+    source = %{
+      base_url: Map.get(params, "base_url", ""),
+      slug: Map.get(params, "slug", ""),
+      token: Map.get(params, "token", "")
+    }
+
+    case WandererApp.Map.Operations.Source.fetch(source) do
+      {:ok, document} ->
+        {:reply, %{document: document}, socket}
+
+      {:error, reason} when is_atom(reason) ->
+        {:reply, %{error: WandererApp.Map.Operations.Source.message(reason)}, socket}
+
+      _ ->
+        {:reply, %{error: "Could not read that map"}, socket}
+    end
+  end
+
+  def handle_ui_event("pull_map_data", _params, socket),
+    do: {:reply, %{error: "You don't have permission to add systems to this map"}, socket}
+
+  def handle_ui_event("preview_map_data", _params, socket),
+    do: {:reply, %{error: "You don't have permission to add systems to this map"}, socket}
+
+  def handle_ui_event("export_map_data", _params, socket),
+    do: {:reply, %{error: "You don't have permission to export map data"}, socket}
 
   def handle_ui_event("import_map_data", _params, socket),
     do: {:reply, %{error: "You don't have permission to import map data"}, socket}
@@ -434,7 +453,10 @@ defmodule WandererAppWeb.MapCoreEventHandler do
         {:reply,
          %{
            home: Map.take(home, [:map_name, :map_slug, :solar_system_id]),
-           ways_in: WandererApp.Map.Homes.ways_in(home.map_id, home.solar_system_id)
+           ways_in:
+             home.map_id
+             |> WandererApp.Map.Homes.ways_in(home.solar_system_id)
+             |> WandererApp.Map.Homes.to_wire()
          }, socket}
     end
   end
