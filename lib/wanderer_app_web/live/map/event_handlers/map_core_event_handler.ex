@@ -310,6 +310,38 @@ defmodule WandererAppWeb.MapCoreEventHandler do
     end
   end
 
+  # a chain runs into somebody else's home now and then, and the useful question is how one gets
+  # in - only maps this user may already open are considered
+  def handle_ui_event(
+        "get_known_homes",
+        _params,
+        %{assigns: %{map_id: map_id, current_user: current_user}} = socket
+      ),
+      do: {:reply, %{homes: WandererApp.Map.Homes.known(current_user, map_id)}, socket}
+
+  def handle_ui_event(
+        "get_home_ways_in",
+        %{"map_id" => home_map_id, "solar_system_id" => solar_system_id},
+        %{assigns: %{map_id: map_id, current_user: current_user}} = socket
+      ) do
+    solar_system_id = to_solar_system_id(solar_system_id)
+
+    current_user
+    |> WandererApp.Map.Homes.known(map_id)
+    |> Enum.find(&(&1.map_id == home_map_id and &1.solar_system_id == solar_system_id))
+    |> case do
+      nil ->
+        {:reply, %{error: "no_such_home"}, socket}
+
+      home ->
+        {:reply,
+         %{
+           home: Map.take(home, [:map_name, :map_slug, :solar_system_id]),
+           ways_in: WandererApp.Map.Homes.ways_in(home.map_id, home.solar_system_id)
+         }, socket}
+    end
+  end
+
   def handle_ui_event("get_ship_fit", _params, socket),
     do: {:reply, %{error: "character_not_tracked"}, socket}
 
@@ -974,4 +1006,15 @@ defmodule WandererAppWeb.MapCoreEventHandler do
         user_character_eve_ids |> Enum.member?(character.eve_id)
     end)
   end
+
+  defp to_solar_system_id(value) when is_integer(value), do: value
+
+  defp to_solar_system_id(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {id, _rest} -> id
+      :error -> nil
+    end
+  end
+
+  defp to_solar_system_id(_value), do: nil
 end

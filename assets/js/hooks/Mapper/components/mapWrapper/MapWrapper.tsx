@@ -1,4 +1,6 @@
 import { ContextMenuSystem, useContextMenuSystemHandlers } from '@/hooks/Mapper/components/contexts';
+import { KnownHome, useKnownHomes } from '@/hooks/Mapper/hooks/useKnownHomes.ts';
+import { HomeWaysInDialog } from '@/hooks/Mapper/components/mapInterface/components/HomeWaysInDialog';
 import { Map, MAP_ROOT_ID } from '@/hooks/Mapper/components/map/Map.tsx';
 import { OnMapAddSystemCallback, OnMapSelectionChange } from '@/hooks/Mapper/components/map/map.types.ts';
 import {
@@ -84,6 +86,8 @@ export const MapWrapper = () => {
   const [openPing, setOpenPing] = useState<{ type: PingType; solar_system_id: string } | null>(null);
   const [openCustomLabel, setOpenCustomLabel] = useState<string | null>(null);
   const [openAddSystem, setOpenAddSystem] = useState<XYPosition | null>(null);
+  const [homeWaysIn, setHomeWaysIn] = useState<KnownHome | null>(null);
+  const { homes: knownHomes, waysIn } = useKnownHomes(outCommand);
   const [selectedConnection, setSelectedConnection] = useState<SolarSystemConnection | null>(null);
 
   const ref = useRef({
@@ -368,11 +372,15 @@ export const MapWrapper = () => {
         systems={systems}
         hubs={hubs}
         userHubs={userHubs}
+        knownHome={systemContextProps.systemId ? knownHomes[systemContextProps.systemId] : undefined}
+        onShowHomeWaysIn={setHomeWaysIn}
         {...systemContextProps}
         onOpenSettings={handleOpenSettings}
         onTogglePing={handleTogglePing}
         onCustomLabelDialog={handleCustomLabelDialog}
       />
+
+      <HomeWaysInDialog home={homeWaysIn} load={waysIn} onHide={() => setHomeWaysIn(null)} />
 
       <ContextMenuSystemMultiple {...systemMultipleCtxProps} />
     </>

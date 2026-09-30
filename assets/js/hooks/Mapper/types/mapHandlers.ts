@@ -311,6 +311,8 @@ export enum OutCommand {
   updateUserSettings = 'update_user_settings',
   getCharacterStandings = 'get_character_standings',
   getShipFit = 'get_ship_fit',
+  getKnownHomes = 'get_known_homes',
+  getHomeWaysIn = 'get_home_ways_in',
   updateMapSystemLabels = 'update_map_system_labels',
   saveDefaultSettings = 'save_default_settings',
   getDefaultSettings = 'get_default_settings',
