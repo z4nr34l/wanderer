@@ -77,8 +77,6 @@ defmodule WandererApp.Api.MapSystemSignature do
     define(:by_system_id_all, action: :by_system_id_all, args: [:system_id])
     define(:by_system_ids, action: :by_system_ids, args: [:system_ids])
 
-    define(:by_system_ids, action: :by_system_ids, args: [:system_ids])
-
     define(:by_system_id_and_eve_ids,
       action: :by_system_id_and_eve_ids,
       args: [:system_id, :eve_ids]
