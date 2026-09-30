@@ -33,12 +33,16 @@ export type HomeWaysIn = {
  * Only maps this person may already open come back, so a marker on the chain never says more
  * than they could find by opening those maps themselves.
  */
-export const useKnownHomes = (outCommand: OutCommandHandler) => {
+export const useKnownHomes = (outCommand: OutCommandHandler, ready: boolean) => {
   const [homes, setHomes] = useState<Record<string, KnownHome>>({});
   const ref = useRef({ outCommand });
   ref.current = { outCommand };
 
   useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
     let current = true;
 
     const load = async () => {
@@ -63,7 +67,7 @@ export const useKnownHomes = (outCommand: OutCommandHandler) => {
     return () => {
       current = false;
     };
-  }, []);
+  }, [ready]);
 
   const waysIn = useCallback(async (home: KnownHome) => {
     const res = await ref.current.outCommand<HomeWaysIn & { error?: string }>({

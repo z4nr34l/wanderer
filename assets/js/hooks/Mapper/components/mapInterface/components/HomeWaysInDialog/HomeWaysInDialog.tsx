@@ -1,6 +1,6 @@
 import { Dialog } from 'primereact/dialog';
 import { useEffect, useMemo, useState } from 'react';
-import ReactFlow, { Background, Edge, Node, ReactFlowProvider } from 'reactflow';
+import ReactFlow, { Background, Edge, Handle, Node, Position, ReactFlowProvider } from 'reactflow';
 import clsx from 'clsx';
 import { HomeNode, HomeWaysIn, KnownHome } from '@/hooks/Mapper/hooks/useKnownHomes.ts';
 
@@ -56,16 +56,22 @@ const HomeWayNode = ({ data }: { data: { label: HomeNode } }) => {
   const node = data.label;
 
   return (
-    <div
-      className={clsx(
-        'px-2 py-1 rounded border bg-stone-900/90 text-[11px] whitespace-nowrap',
-        CLASS_COLOURS[node.class],
-        { 'ring-1 ring-stone-200': node['home?'] },
-      )}
-    >
-      <div className="font-semibold">{node.name}</div>
-      <div className="text-stone-500">{node['home?'] ? 'home' : node['mouth?'] ? 'way in' : `${node.holes} in`}</div>
-    </div>
+    <>
+      {/* the lines need somewhere to land, but the dots themselves would only add noise */}
+      <Handle type="target" position={Position.Right} isConnectable={false} className="!opacity-0" />
+      <Handle type="source" position={Position.Left} isConnectable={false} className="!opacity-0" />
+
+      <div
+        className={clsx(
+          'px-2 py-1 rounded border bg-stone-900/90 text-[11px] whitespace-nowrap',
+          CLASS_COLOURS[node.class],
+          { 'ring-1 ring-stone-200': node['home?'] },
+        )}
+      >
+        <div className="font-semibold">{node.name}</div>
+        <div className="text-stone-500">{node['home?'] ? 'home' : node['mouth?'] ? 'way in' : `${node.holes} in`}</div>
+      </div>
+    </>
   );
 };
 

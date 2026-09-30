@@ -311,19 +311,24 @@ defmodule WandererAppWeb.MapCoreEventHandler do
   end
 
   # a chain runs into somebody else's home now and then, and the useful question is how one gets
-  # in - only maps this user may already open are considered
-  def handle_ui_event(
-        "get_known_homes",
-        _params,
-        %{assigns: %{map_id: map_id, current_user: current_user}} = socket
-      ),
-      do:
-        {:reply,
-         %{
-           homes:
-             WandererApp.Map.Homes.known(current_user, map_id) ++
-               WandererApp.Map.HomeShares.homes(map_id)
-         }, socket}
+  # in - only maps this user may already open are considered.
+  #
+  # The map asks for this as it comes up, which can be before it has everything assigned, so the
+  # answer to "not ready yet" is an empty list rather than no reply at all.
+  def handle_ui_event("get_known_homes", _params, socket) do
+    map_id = socket.assigns[:map_id]
+    current_user = socket.assigns[:current_user]
+
+    homes =
+      if is_binary(map_id) and not is_nil(current_user) do
+        WandererApp.Map.Homes.known(current_user, map_id) ++
+          WandererApp.Map.HomeShares.homes(map_id)
+      else
+        []
+      end
+
+    {:reply, %{homes: homes}, socket}
+  end
 
   # a home somebody shared, whether it lives here or on another instance
   def handle_ui_event("get_home_ways_in", %{"share_id" => share_id}, socket)
@@ -348,8 +353,10 @@ defmodule WandererAppWeb.MapCoreEventHandler do
   def handle_ui_event(
         "get_home_ways_in",
         %{"map_id" => home_map_id, "solar_system_id" => solar_system_id},
-        %{assigns: %{map_id: map_id, current_user: current_user}} = socket
+        socket
       ) do
+    map_id = socket.assigns[:map_id]
+    current_user = socket.assigns[:current_user]
     solar_system_id = to_solar_system_id(solar_system_id)
 
     current_user

@@ -44,7 +44,11 @@ defmodule WandererApp.Map.Homes do
   The homes declared on the maps this person may see, other than the map they are looking at.
   """
   @spec known(map(), String.t() | nil) :: [home()]
-  def known(current_user, except_map_id \\ nil) do
+  def known(current_user, except_map_id \\ nil)
+
+  def known(nil, _except_map_id), do: []
+
+  def known(current_user, except_map_id) do
     case WandererApp.Maps.get_available_maps(current_user) do
       {:ok, maps} ->
         maps

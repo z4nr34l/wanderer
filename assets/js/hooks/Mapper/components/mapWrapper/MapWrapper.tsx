@@ -87,7 +87,8 @@ export const MapWrapper = () => {
   const [openCustomLabel, setOpenCustomLabel] = useState<string | null>(null);
   const [openAddSystem, setOpenAddSystem] = useState<XYPosition | null>(null);
   const [homeWaysIn, setHomeWaysIn] = useState<KnownHome | null>(null);
-  const { homes: knownHomes, waysIn } = useKnownHomes(outCommand);
+  // the map asks once it is up: before that there is no map to compare homes against
+  const { homes: knownHomes, waysIn } = useKnownHomes(outCommand, systems.length > 0);
   const [selectedConnection, setSelectedConnection] = useState<SolarSystemConnection | null>(null);
 
   const ref = useRef({
