@@ -8,17 +8,21 @@ export type KnownHome = {
   solar_system_id: number;
 };
 
-export type HomeWayIn = {
+export type HomeNode = {
   solar_system_id: number;
   name: string;
-  class: 'high' | 'low' | 'null';
+  class: 'high' | 'low' | 'null' | 'wormhole';
   security: number | null;
   holes: number;
+  'home?': boolean;
+  'mouth?': boolean;
 };
+
+export type HomeEdge = { source: number; target: number };
 
 export type HomeWaysIn = {
   home: { map_name: string; map_slug: string; solar_system_id: number };
-  ways_in: HomeWayIn[];
+  ways_in: { nodes: HomeNode[]; edges: HomeEdge[] };
 };
 
 /**

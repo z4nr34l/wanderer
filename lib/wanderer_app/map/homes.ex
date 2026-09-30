@@ -25,12 +25,19 @@ defmodule WandererApp.Map.Homes do
           solar_system_id: integer()
         }
 
-  @type way_in :: %{
+  @type node_info :: %{
           solar_system_id: integer(),
           name: String.t(),
-          class: :high | :low | :null,
+          class: :high | :low | :null | :wormhole,
           security: number() | nil,
-          holes: non_neg_integer()
+          holes: non_neg_integer(),
+          home?: boolean(),
+          mouth?: boolean()
+        }
+
+  @type chain :: %{
+          nodes: [node_info()],
+          edges: [%{source: integer(), target: integer()}]
         }
 
   @doc """
@@ -58,28 +65,58 @@ defmodule WandererApp.Map.Homes do
   end
 
   @doc """
-  The ways into a home: every k-space system on that map with a hole into the chain that reaches
-  it, nearest first.
+  The way in, drawn: every system on a shortest path from a mouth of the chain to the home, and
+  the connections between them.
+
+  It is the chain as their map has it, cut down to what leads in - so the reader sees the route
+  rather than a list of names.
   """
-  @spec ways_in(String.t(), integer()) :: [way_in()]
+  @spec ways_in(String.t(), integer()) :: chain()
   def ways_in(map_id, home_solar_system_id)
       when is_binary(map_id) and is_integer(home_solar_system_id) do
     with {:ok, systems} <- WandererApp.MapSystemRepo.get_visible_by_map(map_id),
          {:ok, connections} <- WandererApp.MapConnectionRepo.get_by_map(map_id) do
-      depths = hole_depths(connections, home_solar_system_id)
+      {depths, parents} = walk_from(connections, home_solar_system_id)
 
-      systems
-      |> mouths(connections)
-      |> Enum.filter(&Map.has_key?(depths, &1))
-      |> Enum.map(&describe(&1, Map.get(depths, &1)))
-      |> Enum.reject(&is_nil/1)
-      |> Enum.sort_by(&{&1.holes, &1.name})
+      mouth_ids =
+        systems
+        |> mouths(connections)
+        |> Enum.filter(&Map.has_key?(depths, &1))
+
+      {ids, edges} = paths_in(mouth_ids, parents, home_solar_system_id)
+
+      %{
+        nodes:
+          ids
+          |> Enum.map(
+            &describe(&1, Map.get(depths, &1, 0), &1 == home_solar_system_id, &1 in mouth_ids)
+          )
+          |> Enum.reject(&is_nil/1)
+          |> Enum.sort_by(&{&1.holes, &1.name}),
+        edges: edges
+      }
     else
-      _ -> []
+      _ -> %{nodes: [], edges: []}
     end
   end
 
-  def ways_in(_map_id, _home), do: []
+  def ways_in(_map_id, _home), do: %{nodes: [], edges: []}
+
+  @doc """
+  Walks back from every mouth to the home, collecting what is on the way.
+  """
+  @spec paths_in([integer()], %{integer() => integer()}, integer()) ::
+          {[integer()], [%{source: integer(), target: integer()}]}
+  def paths_in(mouth_ids, parents, home_solar_system_id) do
+    Enum.reduce(mouth_ids, {MapSet.new([home_solar_system_id]), MapSet.new()}, fn mouth,
+                                                                                  {ids, edges} ->
+      walk_back(mouth, parents, home_solar_system_id, MapSet.put(ids, mouth), edges)
+    end)
+    |> then(fn {ids, edges} ->
+      {MapSet.to_list(ids),
+       edges |> MapSet.to_list() |> Enum.map(fn {a, b} -> %{source: a, target: b} end)}
+    end)
+  end
 
   @doc """
   The k-space systems on a map that have a hole into J-space - the places a chain can be entered
@@ -109,6 +146,17 @@ defmodule WandererApp.Map.Homes do
   """
   @spec hole_depths([map()], integer()) :: %{integer() => non_neg_integer()}
   def hole_depths(connections, home_solar_system_id) do
+    {depths, _parents} = walk_from(connections, home_solar_system_id)
+    depths
+  end
+
+  @doc """
+  The same walk, keeping the step each system was first reached from - which is what turns a
+  depth into a path back to the home.
+  """
+  @spec walk_from([map()], integer()) ::
+          {%{integer() => non_neg_integer()}, %{integer() => integer()}}
+  def walk_from(connections, home_solar_system_id) do
     neighbours =
       Enum.reduce(connections, %{}, fn %{
                                          solar_system_source: source,
@@ -120,7 +168,7 @@ defmodule WandererApp.Map.Homes do
         |> Map.update(target, [source], &[source | &1])
       end)
 
-    walk(neighbours, [home_solar_system_id], %{home_solar_system_id => 0}, 1)
+    walk(neighbours, [home_solar_system_id], %{home_solar_system_id => 0}, %{}, 1)
   end
 
   @doc """
@@ -137,21 +185,44 @@ defmodule WandererApp.Map.Homes do
 
   def class(_security), do: :null
 
-  defp walk(_neighbours, [], depths, _depth), do: depths
+  defp walk(_neighbours, [], depths, parents, _depth), do: {depths, parents}
 
-  defp walk(neighbours, frontier, depths, depth) do
-    next =
-      frontier
-      |> Enum.flat_map(&Map.get(neighbours, &1, []))
-      |> Enum.uniq()
-      |> Enum.reject(&Map.has_key?(depths, &1))
+  defp walk(neighbours, frontier, depths, parents, depth) do
+    {next, depths, parents} =
+      Enum.reduce(frontier, {[], depths, parents}, fn system, acc ->
+        neighbours
+        |> Map.get(system, [])
+        |> Enum.reduce(acc, fn neighbour, {next, depths, parents} ->
+          if Map.has_key?(depths, neighbour) do
+            {next, depths, parents}
+          else
+            {[neighbour | next], Map.put(depths, neighbour, depth),
+             Map.put(parents, neighbour, system)}
+          end
+        end)
+      end)
 
-    depths = Enum.reduce(next, depths, &Map.put(&2, &1, depth))
-
-    walk(neighbours, next, depths, depth + 1)
+    walk(neighbours, Enum.reverse(next), depths, parents, depth + 1)
   end
 
-  defp describe(solar_system_id, holes) do
+  defp walk_back(system, parents, home_solar_system_id, ids, edges) do
+    case Map.get(parents, system) do
+      nil ->
+        {ids, edges}
+
+      parent ->
+        edges = MapSet.put(edges, {min(system, parent), max(system, parent)})
+        ids = MapSet.put(ids, parent)
+
+        if parent == home_solar_system_id do
+          {ids, edges}
+        else
+          walk_back(parent, parents, home_solar_system_id, ids, edges)
+        end
+    end
+  end
+
+  defp describe(solar_system_id, holes, home?, mouth?) do
     case WandererApp.CachedInfo.get_system_static_info(solar_system_id) do
       {:ok, %{solar_system_name: name} = info} ->
         security = to_number(Map.get(info, :security))
@@ -159,9 +230,11 @@ defmodule WandererApp.Map.Homes do
         %{
           solar_system_id: solar_system_id,
           name: name,
-          class: class(security),
+          class: if(j_space?(solar_system_id), do: :wormhole, else: class(security)),
           security: security,
-          holes: holes
+          holes: holes,
+          home?: home?,
+          mouth?: mouth?
         }
 
       _ ->

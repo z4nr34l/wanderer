@@ -60,6 +60,48 @@ defmodule WandererApp.Map.HomesTest do
     end
   end
 
+  describe "walk_from/2 and paths_in/3" do
+    test "a path back to the home keeps what is on the way and nothing else" do
+      connections = [
+        connection(@home, @deeper),
+        connection(@deeper, @jita),
+        # a branch of the chain that leads somewhere else
+        connection(@home, @stray)
+      ]
+
+      {depths, parents} = Homes.walk_from(connections, @home)
+
+      assert depths[@jita] == 2
+
+      {ids, edges} = Homes.paths_in([@jita], parents, @home)
+
+      assert Enum.sort(ids) == Enum.sort([@home, @deeper, @jita])
+      refute @stray in ids
+
+      assert Enum.sort_by(edges, & &1.source) ==
+               [
+                 %{source: min(@home, @deeper), target: max(@home, @deeper)},
+                 %{source: min(@deeper, @jita), target: max(@deeper, @jita)}
+               ]
+               |> Enum.sort_by(& &1.source)
+    end
+
+    test "two mouths sharing a stretch of chain share its edges" do
+      connections = [
+        connection(@home, @deeper),
+        connection(@deeper, @jita),
+        connection(@deeper, @amarr)
+      ]
+
+      {_depths, parents} = Homes.walk_from(connections, @home)
+
+      {ids, edges} = Homes.paths_in([@jita, @amarr], parents, @home)
+
+      assert Enum.sort(ids) == Enum.sort([@home, @deeper, @jita, @amarr])
+      assert length(edges) == 3
+    end
+  end
+
   describe "class/1" do
     test "0.45 is high sec, because that is what the game rounds up" do
       assert Homes.class(0.45) == :high
