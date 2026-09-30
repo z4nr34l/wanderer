@@ -9,6 +9,9 @@ defmodule WandererApp.MapSystemCommentRepo do
   def get_by_system(system_id),
     do: WandererApp.Api.MapSystemComment.by_system_id(system_id, load: [:character])
 
+  def get_by_systems(system_ids),
+    do: WandererApp.Api.MapSystemComment.by_system_ids(system_ids, load: [:character])
+
   def create(comment), do: comment |> WandererApp.Api.MapSystemComment.create()
   def create!(comment), do: comment |> WandererApp.Api.MapSystemComment.create!()
 

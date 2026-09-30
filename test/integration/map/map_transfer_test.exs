@@ -11,7 +11,9 @@ defmodule WandererApp.Map.MapTransferTest do
 
   import WandererApp.MapTestHelpers
 
+  alias WandererApp.Api.MapSystemComment
   alias WandererApp.Api.MapSystemSignature
+  alias WandererApp.Api.MapSystemStructure
   alias WandererApp.Map.Operations.Transfer
   alias WandererApp.Map.Server
 
@@ -62,7 +64,7 @@ defmodule WandererApp.Map.MapTransferTest do
 
       {:ok, document} = Transfer.export(source.map_id)
 
-      assert document["version"] == 1
+      assert document["version"] == 2
       assert length(document["systems"]) == 2
       assert length(document["connections"]) == 1
       assert length(document["signatures"]) == 1
@@ -70,7 +72,14 @@ defmodule WandererApp.Map.MapTransferTest do
       {:ok, stats} =
         Transfer.import(target.map_id, document, target.user_id, target.character_id)
 
-      assert stats == %{systems: 2, connections: 1, signatures: 1}
+      assert stats == %{
+               systems: 2,
+               hidden_systems: 0,
+               connections: 1,
+               signatures: 1,
+               comments: 0,
+               structures: 0
+             }
 
       assert wait_for_system_on_map(target.map_id, @system_a)
       assert wait_for_system_on_map(target.map_id, @system_b)
@@ -114,7 +123,14 @@ defmodule WandererApp.Map.MapTransferTest do
 
       # the counts are the only feedback anyone gets about an import being safe to re-run, so a
       # no-op has to report zeroes rather than the size of the document
-      assert second == %{systems: 0, connections: 0, signatures: 0}
+      assert second == %{
+               systems: 0,
+               hidden_systems: 0,
+               connections: 0,
+               signatures: 0,
+               comments: 0,
+               structures: 0
+             }
 
       cleanup_test_data(source.map_id)
       cleanup_test_data(target.map_id)
@@ -151,6 +167,178 @@ defmodule WandererApp.Map.MapTransferTest do
       assert system.tag == "A"
       assert system.status == 1
       assert system.temporary_name == "HS-1"
+
+      cleanup_test_data(source.map_id)
+      cleanup_test_data(target.map_id)
+    end
+
+    test "a system nobody has on the map any more still carries its intel" do
+      source = start_test_map()
+      target = start_test_map()
+
+      seed_source_map(source)
+
+      Server.update_system_description(source.map_id, %{
+        solar_system_id: @system_b,
+        description: "staging, three jumps out"
+      })
+
+      :ok = Server.delete_systems(source.map_id, [@system_b], source.user_id, source.character_id)
+      refute system_visible?(source.map_id, @system_b)
+
+      {:ok, document} = Transfer.export(source.map_id)
+
+      exported = Enum.find(document["systems"], &(&1["solar_system_id"] == @system_b))
+      assert exported["visible"] == false
+      assert exported["description"] == "staging, three jumps out"
+
+      {:ok, stats} =
+        Transfer.import(target.map_id, document, target.user_id, target.character_id)
+
+      assert stats.hidden_systems == 1
+
+      {:ok, system} =
+        WandererApp.MapSystemRepo.get_by_map_and_solar_system_id(target.map_id, @system_b)
+
+      assert system.description == "staging, three jumps out"
+
+      # it arrived with its intel, but nobody asked for it on the map
+      refute system.visible
+      refute system_visible?(target.map_id, @system_b)
+
+      cleanup_test_data(source.map_id)
+      cleanup_test_data(target.map_id)
+    end
+
+    test "an off-map system on the target keeps the note somebody here wrote on it" do
+      source = start_test_map()
+      target = start_test_map()
+
+      seed_source_map(source)
+
+      Server.update_system_description(source.map_id, %{
+        solar_system_id: @system_b,
+        description: "what they saw"
+      })
+
+      :ok = Server.delete_systems(source.map_id, [@system_b], source.user_id, source.character_id)
+
+      {:ok, document} = Transfer.export(source.map_id)
+
+      :ok =
+        Server.add_system(
+          target.map_id,
+          %{solar_system_id: @system_b, coordinates: %{"x" => 0, "y" => 0}},
+          target.user_id,
+          target.character_id
+        )
+
+      assert wait_for_system_on_map(target.map_id, @system_b)
+
+      Server.update_system_description(target.map_id, %{
+        solar_system_id: @system_b,
+        description: "what we saw"
+      })
+
+      :ok = Server.delete_systems(target.map_id, [@system_b], target.user_id, target.character_id)
+
+      {:ok, _stats} =
+        Transfer.import(target.map_id, document, target.user_id, target.character_id)
+
+      {:ok, system} =
+        WandererApp.MapSystemRepo.get_by_map_and_solar_system_id(target.map_id, @system_b)
+
+      assert system.description == "what we saw"
+
+      cleanup_test_data(source.map_id)
+      cleanup_test_data(target.map_id)
+    end
+
+    test "the notes on a connection, on a system and on a structure all survive the trip" do
+      source = start_test_map()
+      target = start_test_map()
+
+      seed_source_map(source)
+
+      Server.update_connection_custom_info(source.map_id, %{
+        solar_system_source_id: @system_a,
+        solar_system_target_id: @system_b,
+        custom_info: "rolls at 2bn"
+      })
+
+      {:ok, seeded} =
+        WandererApp.MapSystemRepo.get_by_map_and_solar_system_id(source.map_id, @system_a)
+
+      {:ok, _} =
+        MapSystemComment.create(%{
+          system_id: seeded.id,
+          character_id: source.character_id,
+          text: "two Lokis sat here all evening"
+        })
+
+      {:ok, _} =
+        MapSystemStructure.create(%{
+          system_id: seeded.id,
+          solar_system_id: @system_a,
+          solar_system_name: "J101101",
+          structure_type_id: "35832",
+          structure_type: "Astrahus",
+          character_eve_id: "90000001",
+          name: "Their staging",
+          notes: "timer Tuesday",
+          owner_ticker: "BAD"
+        })
+
+      {:ok, document} = Transfer.export(source.map_id)
+
+      assert length(document["comments"]) == 1
+      assert length(document["structures"]) == 1
+
+      {:ok, stats} =
+        Transfer.import(target.map_id, document, target.user_id, target.character_id)
+
+      assert stats.comments == 1
+      assert stats.structures == 1
+
+      assert wait_for_system_on_map(target.map_id, @system_a)
+
+      connection = connection_between(target.map_id, @system_a, @system_b)
+      assert connection.custom_info == "rolls at 2bn"
+
+      {:ok, imported} =
+        WandererApp.MapSystemRepo.get_by_map_and_solar_system_id(target.map_id, @system_a)
+
+      {:ok, [comment]} = MapSystemComment.by_system_ids([imported.id])
+      assert comment.text == "two Lokis sat here all evening"
+
+      {:ok, [structure]} = MapSystemStructure.by_system_ids([imported.id])
+      assert structure.name == "Their staging"
+      assert structure.notes == "timer Tuesday"
+
+      cleanup_test_data(source.map_id)
+      cleanup_test_data(target.map_id)
+    end
+
+    test "a document from before hidden systems were carried still imports" do
+      source = start_test_map()
+      target = start_test_map()
+
+      seed_source_map(source)
+
+      {:ok, document} = Transfer.export(source.map_id)
+
+      older =
+        document
+        |> Map.put("version", 1)
+        |> Map.update!("systems", fn systems ->
+          Enum.map(systems, &Map.delete(&1, "visible"))
+        end)
+
+      {:ok, stats} = Transfer.import(target.map_id, older, target.user_id, target.character_id)
+
+      assert stats.systems == 2
+      assert stats.hidden_systems == 0
+      assert wait_for_system_on_map(target.map_id, @system_a)
 
       cleanup_test_data(source.map_id)
       cleanup_test_data(target.map_id)

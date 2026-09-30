@@ -18,6 +18,7 @@ type PendingImport = {
   systems: number;
   connections: number;
   signatures: number;
+  hiddenSystems: number;
 };
 
 export const ImportExport = () => {
@@ -220,6 +221,9 @@ export const ImportExport = () => {
       systems: Array.isArray(parsed?.systems) ? parsed.systems.length : 0,
       connections: Array.isArray(parsed?.connections) ? parsed.connections.length : 0,
       signatures: Array.isArray(parsed?.signatures) ? parsed.signatures.length : 0,
+      hiddenSystems: Array.isArray(parsed?.systems)
+        ? parsed.systems.filter((system: { visible?: boolean }) => system?.visible === false).length
+        : 0,
     });
   }, []);
 
@@ -244,15 +248,22 @@ export const ImportExport = () => {
         throw new Error(res?.error ?? 'Empty response');
       }
 
-      const { systems, connections, signatures } = res.result;
+      const { systems, connections, signatures, hidden_systems = 0, comments = 0, structures = 0 } = res.result;
 
       toast.current?.show({
         severity: 'success',
         summary: 'Import map',
         detail:
-          systems + connections + signatures === 0
+          systems + connections + signatures + hidden_systems + comments + structures === 0
             ? 'Everything in that file was already on the map - nothing was added.'
-            : `Added ${systems} systems, ${connections} connections, ${signatures} signatures.`,
+            : [
+                `Added ${systems} systems, ${connections} connections, ${signatures} signatures`,
+                hidden_systems > 0 ? `${hidden_systems} systems off the map` : null,
+                comments > 0 ? `${comments} comments` : null,
+                structures > 0 ? `${structures} structures` : null,
+              ]
+                .filter(Boolean)
+                .join(', ') + '.',
         life: 4000,
       });
     } catch (error) {
@@ -356,8 +367,9 @@ export const ImportExport = () => {
         />
 
         <span className="text-stone-500 text-[12px]">
-          *Map contents - systems, connections and signatures - as a file. Import adds what is missing, systems already
-          on the map are left untouched.
+          *Map contents - systems (including the ones taken off the map, with their notes), connections, signatures,
+          comments and structures - as a file. Import adds what is missing, systems already on the map are left
+          untouched.
         </span>
       </div>
 
@@ -373,6 +385,9 @@ export const ImportExport = () => {
             This adds up to {pendingImport?.systems} systems, {pendingImport?.connections} connections and{' '}
             {includeSignatures ? pendingImport?.signatures : 0} signatures to <b>{map_slug ?? 'this map'}</b>, for
             everyone on the map. Systems already there are left alone, and an import cannot be undone.
+            {(pendingImport?.hiddenSystems ?? 0) > 0 &&
+              ` ${pendingImport?.hiddenSystems} of those systems were off the map where the file came from; they
+                arrive off the map here too, carrying whatever was written about them.`}
           </span>
 
           <div className="flex justify-end gap-2">

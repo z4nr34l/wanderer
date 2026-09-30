@@ -114,6 +114,8 @@ defmodule WandererApp.Api.MapSystemStructure do
       action: :by_system_id,
       args: [:system_id]
     )
+
+    define(:by_system_ids, action: :by_system_ids, args: [:system_ids])
   end
 
   actions do
@@ -142,6 +144,12 @@ defmodule WandererApp.Api.MapSystemStructure do
     read :by_system_id do
       argument :system_id, :string, allow_nil?: false
       filter(expr(system_id == ^arg(:system_id)))
+    end
+
+    read :by_system_ids do
+      argument(:system_ids, {:array, :string}, allow_nil?: false)
+
+      filter(expr(system_id in ^arg(:system_ids)))
     end
 
     create :create do

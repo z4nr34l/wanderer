@@ -714,6 +714,7 @@ defmodule WandererApp.Map.Server.ConnectionsImpl do
         wormhole_type = get_extra_info(extra_info, "wormhole_type", nil)
         dangerous = get_extra_info(extra_info, "dangerous", false)
         bubbled = get_extra_info(extra_info, "bubbled", 0)
+        custom_info = get_extra_info(extra_info, "custom_info", nil)
 
         {:ok, connection} =
           WandererApp.MapConnectionRepo.create(%{
@@ -727,7 +728,8 @@ defmodule WandererApp.Map.Server.ConnectionsImpl do
             locked: locked,
             wormhole_type: wormhole_type,
             dangerous: dangerous,
-            bubbled: bubbled
+            bubbled: bubbled,
+            custom_info: custom_info
           })
 
         if connection_type == @connection_type_wormhole do

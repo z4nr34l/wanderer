@@ -10,19 +10,32 @@ defmodule WandererApp.Map.Operations.Transfer do
   Only map contents are transferred: systems, connections and (optionally) signatures. Access
   lists, subscriptions and per user settings are deliberately left out - they reference accounts
   and characters that do not exist on the importing side.
+
+  Systems that are no longer on the map travel too. Taking a system off a map only hides it, and
+  what somebody wrote about it - the notes, the tags, the signatures - is often the most valuable
+  part of a chain's history. Those arrive on the far side hidden as well, so an import never puts
+  a system back on the map that nobody asked for.
   """
 
   require Logger
 
+  alias WandererApp.Api.MapSystemComment
   alias WandererApp.Api.MapSystemSignature
+  alias WandererApp.Api.MapSystemStructure
   alias WandererApp.Map.Server
 
-  @export_version 1
+  @export_version 2
+
+  # Version 1 knew nothing about hidden systems; everything it carries was on the map.
+  @supported_versions [1, 2]
 
   @type stats :: %{
           systems: non_neg_integer(),
+          hidden_systems: non_neg_integer(),
           connections: non_neg_integer(),
-          signatures: non_neg_integer()
+          signatures: non_neg_integer(),
+          comments: non_neg_integer(),
+          structures: non_neg_integer()
         }
 
   @doc """
@@ -36,7 +49,7 @@ defmodule WandererApp.Map.Operations.Transfer do
     include_signatures = Keyword.get(opts, :include_signatures, true)
 
     with {:ok, map} <- WandererApp.MapRepo.get(map_id),
-         {:ok, systems} <- WandererApp.MapSystemRepo.get_visible_by_map(map_id),
+         {:ok, systems} <- WandererApp.MapSystemRepo.get_all_by_map(map_id),
          {:ok, connections} <- WandererApp.MapConnectionRepo.get_by_map(map_id) do
       {:ok,
        %{
@@ -49,7 +62,9 @@ defmodule WandererApp.Map.Operations.Transfer do
          },
          "systems" => Enum.map(systems, &export_system/1),
          "connections" => Enum.map(connections, &export_connection/1),
-         "signatures" => export_signatures(systems, include_signatures)
+         "signatures" => export_signatures(systems, include_signatures),
+         "comments" => export_comments(systems),
+         "structures" => export_structures(systems)
        }}
     end
   end
@@ -67,34 +82,43 @@ defmodule WandererApp.Map.Operations.Transfer do
           {:ok, stats()} | {:error, term()}
   def import(map_id, data, user_id, character_id, opts \\ [])
 
-  def import(map_id, %{"version" => @export_version} = data, user_id, character_id, opts) do
+  def import(map_id, %{"version" => version} = data, user_id, character_id, opts)
+      when version in @supported_versions do
     include_signatures = Keyword.get(opts, :include_signatures, true)
 
     systems = Map.get(data, "systems", [])
     connections = Map.get(data, "connections", [])
     signatures = if include_signatures, do: Map.get(data, "signatures", []), else: []
 
-    existing_ids = existing_solar_system_ids(map_id)
+    present = present_solar_system_ids(map_id)
 
-    imported_systems =
+    counts =
       systems
       |> Enum.filter(&is_map/1)
-      |> Enum.map(&import_system(map_id, &1, user_id, character_id, existing_ids))
-      |> Enum.count(& &1)
+      |> Enum.map(&import_system(map_id, &1, user_id, character_id, present))
+      |> Enum.frequencies()
+
+    imported_systems = Map.get(counts, :added, 0)
+    imported_hidden = Map.get(counts, :added_hidden, 0)
 
     imported_connections = import_connections(map_id, connections, user_id, character_id)
     imported_signatures = import_signatures(map_id, signatures, character_id)
+    imported_comments = import_comments(map_id, Map.get(data, "comments", []), character_id)
+    imported_structures = import_structures(map_id, Map.get(data, "structures", []), character_id)
 
     Logger.info(
-      "Imported #{imported_systems} systems, #{imported_connections} connections, " <>
-        "#{imported_signatures} signatures into map #{map_id}"
+      "Imported #{imported_systems} systems, #{imported_hidden} off-map systems, " <>
+        "#{imported_connections} connections, #{imported_signatures} signatures into map #{map_id}"
     )
 
     {:ok,
      %{
        systems: imported_systems,
+       hidden_systems: imported_hidden,
        connections: imported_connections,
-       signatures: imported_signatures
+       signatures: imported_signatures,
+       comments: imported_comments,
+       structures: imported_structures
      }}
   end
 
@@ -117,7 +141,8 @@ defmodule WandererApp.Map.Operations.Transfer do
       "tag" => system.tag,
       "temporary_name" => system.temporary_name,
       "locked" => system.locked,
-      "linked_sig_eve_id" => system.linked_sig_eve_id
+      "linked_sig_eve_id" => system.linked_sig_eve_id,
+      "visible" => system.visible
     }
   end
 
@@ -132,7 +157,8 @@ defmodule WandererApp.Map.Operations.Transfer do
       "wormhole_type" => connection.wormhole_type,
       "locked" => connection.locked,
       "dangerous" => connection.dangerous,
-      "bubbled" => connection.bubbled
+      "bubbled" => connection.bubbled,
+      "custom_info" => connection.custom_info
     }
   end
 
@@ -167,66 +193,197 @@ defmodule WandererApp.Map.Operations.Transfer do
     }
   end
 
-  # -- import helpers ------------------------------------------------------------------------
+  # Comments and structures are where a chain's intel really lives - what somebody saw in a
+  # system, whose POS is where, when a timer runs out. Both are keyed by system, so they follow
+  # whichever systems the document carries.
+  defp export_comments(systems) do
+    solar_system_ids = Map.new(systems, &{&1.id, &1.solar_system_id})
 
-  # Deletion on a map is a soft `visible: false`, and `Server.add_system` decides a system is
-  # missing on exactly that basis. Counting the hidden rows as present would let a deleted system
-  # come back stripped of everything the document carries for it.
-  defp existing_solar_system_ids(map_id) do
-    case WandererApp.MapSystemRepo.get_visible_by_map(map_id) do
-      {:ok, systems} -> MapSet.new(systems, & &1.solar_system_id)
-      _ -> MapSet.new()
+    case MapSystemComment.by_system_ids(Map.keys(solar_system_ids)) do
+      {:ok, comments} ->
+        Enum.map(comments, fn comment ->
+          %{
+            "solar_system_id" => Map.fetch!(solar_system_ids, comment.system_id),
+            "text" => comment.text
+          }
+        end)
+
+      {:error, _} ->
+        []
     end
   end
 
-  defp import_system(map_id, system, user_id, character_id, existing_ids) do
-    with {:ok, solar_system_id} <- parse_solar_system_id(system["solar_system_id"]),
-         :ok <-
-           Server.add_system(
-             map_id,
-             %{solar_system_id: solar_system_id, coordinates: position(system["position"])},
-             user_id,
-             character_id
-           ) do
-      if MapSet.member?(existing_ids, solar_system_id) do
-        # a system already on the map keeps what it has, but takes what it is missing: somebody
-        # importing a chain wants the notes and the colours that come with it
-        fill_missing_system_attributes(map_id, solar_system_id, system)
-        false
-      else
-        apply_system_attributes(map_id, solar_system_id, system)
-        true
+  defp export_structures(systems) do
+    solar_system_ids = Map.new(systems, &{&1.id, &1.solar_system_id})
+
+    case MapSystemStructure.by_system_ids(Map.keys(solar_system_ids)) do
+      {:ok, structures} ->
+        Enum.map(structures, fn structure ->
+          %{
+            "solar_system_id" => Map.fetch!(solar_system_ids, structure.system_id),
+            "solar_system_name" => structure.solar_system_name,
+            "structure_type_id" => structure.structure_type_id,
+            "structure_type" => structure.structure_type,
+            "name" => structure.name,
+            "notes" => structure.notes,
+            "owner_name" => structure.owner_name,
+            "owner_ticker" => structure.owner_ticker,
+            "owner_id" => structure.owner_id,
+            "status" => structure.status,
+            "end_time" => structure.end_time
+          }
+        end)
+
+      {:error, _} ->
+        []
+    end
+  end
+
+  # -- import helpers ------------------------------------------------------------------------
+
+  # Taking a system off a map only sets `visible: false`, so "on the map" and "in the database"
+  # are two different questions and the import needs both answers: what is on the map decides
+  # whether attributes may be overwritten, what is in the database decides whether a row is new.
+  defp present_solar_system_ids(map_id) do
+    all =
+      case WandererApp.MapSystemRepo.get_all_by_map(map_id) do
+        {:ok, systems} -> MapSet.new(systems, & &1.solar_system_id)
+        _ -> MapSet.new()
       end
-    else
+
+    visible =
+      case WandererApp.MapSystemRepo.get_visible_by_map(map_id) do
+        {:ok, systems} -> MapSet.new(systems, & &1.solar_system_id)
+        _ -> MapSet.new()
+      end
+
+    %{all: all, visible: visible}
+  end
+
+  # Version 1 documents only ever carried systems that were on the map.
+  defp wanted_on_map?(system), do: Map.get(system, "visible", true) != false
+
+  defp import_system(map_id, system, user_id, character_id, present) do
+    case parse_solar_system_id(system["solar_system_id"]) do
+      {:ok, solar_system_id} ->
+        cond do
+          MapSet.member?(present.visible, solar_system_id) ->
+            # a system already on the map keeps what it has, but takes what it is missing:
+            # somebody importing a chain wants the notes and the colours that come with it
+            add_to_map(map_id, solar_system_id, system, user_id, character_id, fn ->
+              fill_missing_system_attributes(map_id, solar_system_id, system)
+              :present
+            end)
+
+          wanted_on_map?(system) ->
+            add_to_map(map_id, solar_system_id, system, user_id, character_id, fn ->
+              # off the map until now, so nothing here is worth keeping over the document -
+              # except that showing it again wipes some fields, which are put back in full
+              restore_system_attributes(map_id, solar_system_id, system, present)
+              :added
+            end)
+
+          true ->
+            import_hidden_system(map_id, solar_system_id, system, present)
+        end
+
       error ->
         Logger.warning("[Transfer] skipped system #{inspect(system)}: #{inspect(error)}")
-        false
+        :skipped
+    end
+  end
+
+  defp add_to_map(map_id, solar_system_id, system, user_id, character_id, then_fun) do
+    case Server.add_system(
+           map_id,
+           %{solar_system_id: solar_system_id, coordinates: position(system["position"])},
+           user_id,
+           character_id
+         ) do
+      :ok ->
+        then_fun.()
+
+      error ->
+        Logger.warning("[Transfer] skipped system #{inspect(system)}: #{inspect(error)}")
+        :skipped
+    end
+  end
+
+  # A system the document leaves off the map is written straight to the database. Going through
+  # the map server would show it to everybody on the map, which is the one thing the exporting
+  # side said not to do.
+  defp import_hidden_system(map_id, solar_system_id, system, present) do
+    if MapSet.member?(present.all, solar_system_id) do
+      fill_missing_system_attributes(map_id, solar_system_id, system)
+      :present
+    else
+      create_hidden_system(map_id, solar_system_id, system)
+    end
+  end
+
+  defp create_hidden_system(map_id, solar_system_id, system) do
+    with {:ok, static} <- WandererApp.CachedInfo.get_system_static_info(solar_system_id),
+         %{"x" => x, "y" => y} <- position(system["position"]) || %{"x" => 0, "y" => 0},
+         {:ok, _created} <-
+           WandererApp.MapSystemRepo.create(%{
+             map_id: map_id,
+             solar_system_id: solar_system_id,
+             name: static.solar_system_name,
+             position_x: x,
+             position_y: y,
+             visible: false
+           }) do
+      fill_missing_system_attributes(map_id, solar_system_id, system)
+      :added_hidden
+    else
+      error ->
+        Logger.warning("[Transfer] skipped off-map system #{solar_system_id}: #{inspect(error)}")
+
+        :skipped
     end
   end
 
   @system_attributes [
-    {"custom_name", :custom_name, :update_system_custom_name},
-    {"description", :description, :update_system_description},
-    {"labels", :labels, :update_system_labels},
-    {"status", :status, :update_system_status},
-    {"tag", :tag, :update_system_tag},
-    {"temporary_name", :temporary_name, :update_system_temporary_name},
-    {"locked", :locked, :update_system_locked},
-    {"linked_sig_eve_id", :linked_sig_eve_id, :update_system_linked_sig_eve_id}
+    {"custom_name", :custom_name, :update_system_custom_name, :update_custom_name},
+    {"description", :description, :update_system_description, :update_description},
+    {"labels", :labels, :update_system_labels, :update_labels},
+    {"status", :status, :update_system_status, :update_status},
+    {"tag", :tag, :update_system_tag, :update_tag},
+    {"temporary_name", :temporary_name, :update_system_temporary_name, :update_temporary_name},
+    {"locked", :locked, :update_system_locked, :update_locked},
+    {"linked_sig_eve_id", :linked_sig_eve_id, :update_system_linked_sig_eve_id,
+     :update_linked_sig_eve_id}
   ]
 
+  # Putting a system back on the map clears these, so the document has to say them again.
+  @cleared_when_shown [:labels, :tag, :temporary_name, :linked_sig_eve_id]
+
   defp apply_system_attributes(map_id, solar_system_id, system) do
-    Enum.each(@system_attributes, fn {key, attribute, fun} ->
-      apply_attribute(map_id, solar_system_id, system, {key, attribute, fun})
-    end)
+    Enum.each(@system_attributes, &apply_attribute(map_id, solar_system_id, system, &1))
+  end
+
+  # A system that was on this map before, only hidden, may carry a note somebody here wrote. That
+  # note outranks the document, but the fields showing the system again has just wiped do not.
+  defp restore_system_attributes(map_id, solar_system_id, system, present) do
+    if MapSet.member?(present.all, solar_system_id) do
+      Enum.each(@system_attributes, fn {_key, attribute, _fun, _repo_fun} = definition ->
+        if attribute in @cleared_when_shown do
+          apply_attribute(map_id, solar_system_id, system, definition)
+        end
+      end)
+
+      fill_missing_system_attributes(map_id, solar_system_id, system)
+    else
+      apply_system_attributes(map_id, solar_system_id, system)
+    end
   end
 
   defp fill_missing_system_attributes(map_id, solar_system_id, system) do
     case WandererApp.MapSystemRepo.get_by_map_and_solar_system_id(map_id, solar_system_id) do
       {:ok, current} when not is_nil(current) ->
-        Enum.each(@system_attributes, fn {_key, attribute, _fun} = definition ->
+        Enum.each(@system_attributes, fn {_key, attribute, _fun, _repo_fun} = definition ->
           if blank?(Map.get(current, attribute)) do
-            apply_attribute(map_id, solar_system_id, system, definition)
+            apply_attribute(map_id, solar_system_id, system, definition, current)
           end
         end)
 
@@ -235,13 +392,20 @@ defmodule WandererApp.Map.Operations.Transfer do
     end
   end
 
-  defp apply_attribute(map_id, solar_system_id, system, {key, attribute, fun}) do
+  defp apply_attribute(map_id, solar_system_id, system, definition, current \\ nil)
+
+  defp apply_attribute(map_id, solar_system_id, system, {key, attribute, fun, repo_fun}, current) do
     case Map.get(system, key) do
       value when value in [nil, "", false] ->
         :ok
 
       value ->
-        apply(Server, fun, [map_id, %{:solar_system_id => solar_system_id, attribute => value}])
+        # a system nobody can see is not worth telling the map about
+        if is_map(current) and current.visible == false do
+          apply(WandererApp.MapSystemRepo, repo_fun, [current, %{attribute => value}])
+        else
+          apply(Server, fun, [map_id, %{:solar_system_id => solar_system_id, attribute => value}])
+        end
     end
   end
 
@@ -273,7 +437,8 @@ defmodule WandererApp.Map.Operations.Transfer do
               "wormhole_type",
               "locked",
               "dangerous",
-              "bubbled"
+              "bubbled",
+              "custom_info"
             ])
             |> Map.merge(%{"source" => to_string(source), "target" => to_string(target)})
           ]
@@ -374,6 +539,110 @@ defmodule WandererApp.Map.Operations.Transfer do
       {:ok, %{eve_id: eve_id}} when not is_nil(eve_id) -> to_string(eve_id)
       _ -> "0"
     end
+  end
+
+  defp import_comments(map_id, comments, character_id) do
+    by_system(map_id, comments, fn system, entries ->
+      existing = existing_comment_texts(system.id)
+
+      Enum.count(entries, fn comment ->
+        text = comment["text"]
+
+        if is_binary(text) and text != "" and not MapSet.member?(existing, text) do
+          case MapSystemComment.create(%{
+                 system_id: system.id,
+                 character_id: character_id,
+                 text: text
+               }) do
+            {:ok, _} ->
+              true
+
+            {:error, reason} ->
+              Logger.warning("[Transfer] skipped comment: #{inspect(reason)}")
+              false
+          end
+        else
+          false
+        end
+      end)
+    end)
+  end
+
+  defp existing_comment_texts(system_id) do
+    case MapSystemComment.by_system_ids([system_id]) do
+      {:ok, comments} -> MapSet.new(comments, & &1.text)
+      _ -> MapSet.new()
+    end
+  end
+
+  defp import_structures(map_id, structures, character_id) do
+    character_eve_id = importing_character_eve_id(character_id)
+
+    by_system(map_id, structures, fn system, entries ->
+      existing = existing_structure_names(system.id)
+
+      Enum.count(entries, fn structure ->
+        name = structure["name"]
+
+        if is_binary(name) and not MapSet.member?(existing, name) do
+          attrs =
+            structure
+            |> Map.take([
+              "solar_system_name",
+              "structure_type_id",
+              "structure_type",
+              "name",
+              "notes",
+              "owner_name",
+              "owner_ticker",
+              "owner_id",
+              "status",
+              "end_time"
+            ])
+            |> Map.new(fn {key, value} -> {String.to_existing_atom(key), value} end)
+            |> Map.merge(%{
+              system_id: system.id,
+              solar_system_id: system.solar_system_id,
+              character_eve_id: character_eve_id
+            })
+
+          case MapSystemStructure.create(attrs) do
+            {:ok, _} ->
+              true
+
+            {:error, reason} ->
+              Logger.warning("[Transfer] skipped structure: #{inspect(reason)}")
+              false
+          end
+        else
+          false
+        end
+      end)
+    end)
+  end
+
+  defp existing_structure_names(system_id) do
+    case MapSystemStructure.by_system_ids([system_id]) do
+      {:ok, structures} -> MapSet.new(structures, & &1.name)
+      _ -> MapSet.new()
+    end
+  end
+
+  # comments and structures both arrive keyed by solar system, and both have to find the row the
+  # import has just written for that system
+  defp by_system(map_id, entries, create_fun) do
+    entries
+    |> Enum.filter(&is_map/1)
+    |> Enum.group_by(& &1["solar_system_id"])
+    |> Enum.reduce(0, fn {solar_system_id, grouped}, acc ->
+      with {:ok, parsed_id} <- parse_solar_system_id(solar_system_id),
+           {:ok, system} when not is_nil(system) <-
+             WandererApp.MapSystemRepo.get_by_map_and_solar_system_id(map_id, parsed_id) do
+        acc + create_fun.(system, grouped)
+      else
+        _ -> acc
+      end
+    end)
   end
 
   defp position(%{"x" => x, "y" => y}) when is_number(x) and is_number(y),
