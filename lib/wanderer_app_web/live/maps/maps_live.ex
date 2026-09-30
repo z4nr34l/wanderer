@@ -587,6 +587,28 @@ defmodule WandererAppWeb.MapsLive do
     end
   end
 
+  def handle_event("toggle_home_share_full", params, %{assigns: %{map: map}} = socket) do
+    whole? = Map.get(params, "home_share_full") in ["true", true, "on"]
+
+    case WandererApp.Api.Map.update_home_share_full(map, %{home_share_full: whole?}) do
+      {:ok, updated} ->
+        {:noreply,
+         socket
+         |> assign(
+           map: updated,
+           home_share_status:
+             {:ok,
+              if(whole?,
+                do: "The whole map is shared now.",
+                else: "Only the way into the home is shared now."
+              )}
+         )}
+
+      _ ->
+        {:noreply, socket |> assign(home_share_status: {:error, "Could not change that."})}
+    end
+  end
+
   def handle_event("revoke_home_share", _params, %{assigns: %{map: map}} = socket) do
     case WandererApp.Api.Map.update_home_share_token(map, %{home_share_token: nil}) do
       {:ok, updated} ->

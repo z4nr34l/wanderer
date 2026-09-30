@@ -133,7 +133,16 @@ defmodule WandererApp.Map.HomeShares do
   came from.
   """
   @spec ways_in(String.t()) :: {:ok, map()} | {:error, atom()}
-  def ways_in(share_id) do
+  def ways_in(share_id), do: payload(share_id)
+
+  @doc """
+  Everything a share hands over, by the id of the share itself.
+
+  What that is depends on the far side: always the home and the way in, and the whole map too
+  when its owner shares it whole.
+  """
+  @spec payload(String.t()) :: {:ok, map()} | {:error, atom()}
+  def payload(share_id) when is_binary(share_id) do
     with {:ok, share} <- MapHomeShare.by_id(share_id),
          {:ok, payload} <- read(share) do
       {:ok, payload}
@@ -159,7 +168,14 @@ defmodule WandererApp.Map.HomeShares do
         |> WandererApp.Map.Homes.ways_in(map.home_solar_system_id)
         |> WandererApp.Map.Homes.to_wire()
     }
+    |> maybe_whole_map(map)
   end
+
+  # the whole map travels only when its owner has said it may
+  defp maybe_whole_map(payload, %{home_share_full: true, id: map_id}),
+    do: Map.put(payload, "map", WandererApp.Map.Links.whole(map_id))
+
+  defp maybe_whole_map(payload, _map), do: payload
 
   defp read(%{base_url: base_url, slug: slug, token: token}) when base_url in [nil, ""],
     do: read_local(slug, token)

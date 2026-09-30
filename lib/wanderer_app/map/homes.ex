@@ -25,19 +25,12 @@ defmodule WandererApp.Map.Homes do
           solar_system_id: integer()
         }
 
-  @type node_info :: %{
-          solar_system_id: integer(),
-          name: String.t(),
-          class: :high | :low | :null | :wormhole,
-          security: number() | nil,
-          holes: non_neg_integer(),
-          home?: boolean(),
-          mouth?: boolean()
-        }
+  @type marker :: %{holes: non_neg_integer(), home?: boolean(), mouth?: boolean()}
 
   @type chain :: %{
-          nodes: [node_info()],
-          edges: [%{source: integer(), target: integer()}]
+          systems: [struct()],
+          connections: [struct()],
+          markers: %{integer() => marker()}
         }
 
   @doc """

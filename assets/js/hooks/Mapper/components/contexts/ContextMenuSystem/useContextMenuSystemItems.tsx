@@ -42,6 +42,8 @@ export const useContextMenuSystemItems = ({
   systems,
   knownHome,
   onShowHomeWaysIn,
+  linkedMaps,
+  onShowLinkedMap,
 }: Omit<ContextMenuSystemProps, 'contextMenuRef'>) => {
   const getTags = useTagMenu(systems, systemId, onSystemTag);
   const getStatus = useStatusMenu(systems, systemId, onSystemStatus);
@@ -104,9 +106,17 @@ export const useContextMenuSystemItems = ({
               icon: PrimeIcons.HOME,
               command: () => onShowHomeWaysIn(knownHome),
             },
-            { separator: true },
           ]
         : []),
+      // this system is on somebody else's map too, and their map is there to be read
+      ...(linkedMaps?.length && onShowLinkedMap
+        ? linkedMaps.map(link => ({
+            label: `Also on ${link.map_name}`,
+            icon: PrimeIcons.MAP,
+            command: () => onShowLinkedMap(link),
+          }))
+        : []),
+      ...((knownHome && onShowHomeWaysIn) || (linkedMaps?.length && onShowLinkedMap) ? [{ separator: true }] : []),
       getTags(),
       getStatus(),
       ...getLabels(),
@@ -220,5 +230,7 @@ export const useContextMenuSystemItems = ({
     isShowPingBtn,
     knownHome,
     onShowHomeWaysIn,
+    linkedMaps,
+    onShowLinkedMap,
   ]);
 };

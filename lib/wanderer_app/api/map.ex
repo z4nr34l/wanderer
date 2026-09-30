@@ -81,6 +81,7 @@ defmodule WandererApp.Api.Map do
     define(:update_discord_settings, action: :update_discord_settings)
     define(:update_discord_digest, action: :update_discord_digest)
     define(:update_home_share_token, action: :update_home_share_token)
+    define(:update_home_share_full, action: :update_home_share_full)
     define(:by_home_share_token, action: :by_home_share_token, args: [:home_share_token])
     define(:update_system_labels, action: :update_system_labels)
     define(:assign_owner, action: :assign_owner)
@@ -229,6 +230,11 @@ defmodule WandererApp.Api.Map do
 
     update :update_discord_settings do
       accept [:discord_webhook_url, :home_solar_system_id]
+      require_atomic? false
+    end
+
+    update :update_home_share_full do
+      accept [:home_share_full]
       require_atomic? false
     end
 
@@ -457,6 +463,13 @@ defmodule WandererApp.Api.Map do
     attribute :home_solar_system_id, :integer do
       allow_nil?(true)
       default(nil)
+    end
+
+    # off by default: a token buys the way into the home and nothing else until the owner says
+    # otherwise, and then it buys the whole map
+    attribute :home_share_full, :boolean do
+      allow_nil?(false)
+      default(false)
     end
 
     # set when the owner shares this map's home; whoever holds it may read the way in

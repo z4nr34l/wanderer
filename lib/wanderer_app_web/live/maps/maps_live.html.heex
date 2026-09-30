@@ -614,6 +614,22 @@
                     <div class="text-xs text-stone-500">
                       Slug: <span class="font-mono">{@map.slug}</span>
                     </div>
+                    <form phx-change="toggle_home_share_full" class="flex items-center gap-2">
+                      <input type="hidden" name="home_share_full" value="false" />
+                      <input
+                        type="checkbox"
+                        id="home_share_full"
+                        name="home_share_full"
+                        value="true"
+                        checked={@map.home_share_full}
+                        class="accent-emerald-500"
+                      />
+                      <label for="home_share_full" class="text-xs text-stone-400">
+                        Share the whole map, not only the way in - whoever holds the token can then read
+                        this map wherever it meets theirs
+                      </label>
+                    </form>
+
                     <div>
                       <.button type="button" class="btn-secondary" phx-click="revoke_home_share">
                         Stop sharing

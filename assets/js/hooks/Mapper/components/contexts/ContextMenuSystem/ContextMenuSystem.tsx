@@ -3,11 +3,13 @@ import { ContextMenu } from 'primereact/contextmenu';
 import { PingType, SolarSystemRawType } from '@/hooks/Mapper/types';
 import { useContextMenuSystemItems } from '@/hooks/Mapper/components/contexts/ContextMenuSystem/useContextMenuSystemItems.tsx';
 import { WaypointSetContextHandler } from '@/hooks/Mapper/components/contexts/types.ts';
-import { KnownHome } from '@/hooks/Mapper/hooks/useKnownHomes.ts';
+import { KnownHome, LinkedMap } from '@/hooks/Mapper/hooks/useKnownHomes.ts';
 
 export interface ContextMenuSystemProps {
   knownHome?: KnownHome;
   onShowHomeWaysIn?(home: KnownHome): void;
+  linkedMaps?: LinkedMap[];
+  onShowLinkedMap?(link: LinkedMap): void;
   hubs: string[];
   userHubs: string[];
   contextMenuRef: RefObject<ContextMenu>;

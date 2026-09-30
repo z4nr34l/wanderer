@@ -402,15 +402,29 @@ defmodule WandererAppWeb.MapCoreEventHandler do
     map_id = socket.assigns[:map_id]
     current_user = socket.assigns[:current_user]
 
-    homes =
-      if is_binary(map_id) and not is_nil(current_user) do
+    if is_binary(map_id) and not is_nil(current_user) do
+      homes =
         WandererApp.Map.Homes.known(current_user, map_id) ++
           WandererApp.Map.HomeShares.homes(map_id)
-      else
-        []
-      end
 
-    {:reply, %{homes: homes}, socket}
+      %{links: links, overlaps: overlaps} = WandererApp.Map.Links.known(current_user, map_id)
+
+      {:reply, %{homes: homes, links: links, overlaps: overlaps}, socket}
+    else
+      {:reply, %{homes: [], links: [], overlaps: %{}}, socket}
+    end
+  end
+
+  # a whole linked map, for reading two chains as one where they meet
+  def handle_ui_event("get_linked_map", %{"link_id" => link_id}, socket)
+      when is_binary(link_id) do
+    map_id = socket.assigns[:map_id]
+    current_user = socket.assigns[:current_user]
+
+    case WandererApp.Map.Links.preview(current_user, map_id, link_id) do
+      {:ok, whole} -> {:reply, %{map: whole}, socket}
+      {:error, reason} -> {:reply, %{error: to_string(reason)}, socket}
+    end
   end
 
   # a home somebody shared, whether it lives here or on another instance

@@ -1,6 +1,7 @@
 import { ContextMenuSystem, useContextMenuSystemHandlers } from '@/hooks/Mapper/components/contexts';
-import { KnownHome, useKnownHomes } from '@/hooks/Mapper/hooks/useKnownHomes.ts';
+import { KnownHome, LinkedMap, useKnownHomes } from '@/hooks/Mapper/hooks/useKnownHomes.ts';
 import { HomeWaysInDialog } from '@/hooks/Mapper/components/mapInterface/components/HomeWaysInDialog';
+import { LinkedMapDialog } from '@/hooks/Mapper/components/mapInterface/components/LinkedMapDialog';
 import { Map, MAP_ROOT_ID } from '@/hooks/Mapper/components/map/Map.tsx';
 import { OnMapAddSystemCallback, OnMapSelectionChange } from '@/hooks/Mapper/components/map/map.types.ts';
 import {
@@ -96,7 +97,8 @@ export const MapWrapper = ({ onShowJumpPlanner }: MapWrapperProps) => {
   const [openAddSystem, setOpenAddSystem] = useState<XYPosition | null>(null);
   const [homeWaysIn, setHomeWaysIn] = useState<KnownHome | null>(null);
   // the map asks once it is up: before that there is no map to compare homes against
-  const { homes: knownHomes, waysIn } = useKnownHomes(outCommand, systems.length > 0);
+  const { homes: knownHomes, waysIn, linksFor, linkedMap } = useKnownHomes(outCommand, systems.length > 0);
+  const [linkedMapOpen, setLinkedMapOpen] = useState<{ link: LinkedMap; systemId: string } | null>(null);
   const [selectedConnection, setSelectedConnection] = useState<SolarSystemConnection | null>(null);
 
   const ref = useRef({
@@ -397,6 +399,10 @@ export const MapWrapper = ({ onShowJumpPlanner }: MapWrapperProps) => {
         userHubs={userHubs}
         knownHome={systemContextProps.systemId ? knownHomes[systemContextProps.systemId] : undefined}
         onShowHomeWaysIn={setHomeWaysIn}
+        linkedMaps={systemContextProps.systemId ? linksFor(systemContextProps.systemId) : undefined}
+        onShowLinkedMap={link =>
+          systemContextProps.systemId && setLinkedMapOpen({ link, systemId: systemContextProps.systemId })
+        }
         {...systemContextProps}
         onOpenSettings={handleOpenSettings}
         onJumpFrom={handleJumpFrom}
@@ -406,6 +412,13 @@ export const MapWrapper = ({ onShowJumpPlanner }: MapWrapperProps) => {
       />
 
       <HomeWaysInDialog home={homeWaysIn} load={waysIn} onHide={() => setHomeWaysIn(null)} />
+
+      <LinkedMapDialog
+        link={linkedMapOpen?.link ?? null}
+        meetingAt={linkedMapOpen?.systemId}
+        load={linkedMap}
+        onHide={() => setLinkedMapOpen(null)}
+      />
 
       <ContextMenuSystemMultiple {...systemMultipleCtxProps} />
     </>
