@@ -3,11 +3,13 @@
 <!-- changelog -->
 
 ## [v1.105.1](https://github.com/wanderer-industries/wanderer/compare/v1.105.0...v1.105.1) (2026-07-31)
+## [v1.103.4](https://github.com/wanderer-industries/wanderer/compare/v1.103.3...v1.103.4) (2026-09-20)
 
 
 
 
 ## [v1.105.0](https://github.com/wanderer-industries/wanderer/compare/v1.104.0...v1.105.0) (2026-07-31)
+## [v1.103.3](https://github.com/wanderer-industries/wanderer/compare/v1.103.2...v1.103.3) (2026-09-20)
 
 
 
@@ -17,6 +19,7 @@
 * map: show on the system card that a signature inside is bubbled
 
 ## [v1.104.0](https://github.com/wanderer-industries/wanderer/compare/v1.103.0...v1.104.0) (2026-07-31)
+## [v1.103.2](https://github.com/wanderer-industries/wanderer/compare/v1.103.1...v1.103.2) (2026-09-20)
 
 
 
@@ -30,6 +33,22 @@
 * map: route the new connection events and show the flags on the edge
 
 ## [v1.103.0](https://github.com/wanderer-industries/wanderer/compare/v1.102.1...v1.103.0) (2026-07-31)
+### Bug Fixes:
+
+* ash: regenerate the maps_v1 snapshot for the scopes default
+
+* db: repair maps_v1.scopes charlist default
+
+## [v1.103.1](https://github.com/wanderer-industries/wanderer/compare/v1.103.0...v1.103.1) (2026-09-20)
+
+
+
+
+### Bug Fixes:
+
+* db: add the missing map_chain_v1.locked_by_id foreign key
+
+## [v1.103.0](https://github.com/wanderer-industries/wanderer/compare/v1.102.0...v1.103.0) (2026-09-20)
 
 
 
@@ -39,6 +58,110 @@
 * map: mark connections dangerous or bubbled by hand
 
 ## [v1.102.1](https://github.com/wanderer-industries/wanderer/compare/v1.102.0...v1.102.1) (2026-07-30)
+* api: guard + actor-propagate custom systems_and_connections endpoint
+
+* api: deny-by-default policies for zero-operation v1 resources
+
+* api: token-read-only ACLs and denied user_activity on v1
+
+* api: scope system-child v1 resources per real route matrix
+
+* api: enable domain authz gate + policies for direct-map_id resources
+
+* api: add MapScoped bypass/read/write policy checks
+
+* api: make /api/v1 token-only (remove session auth branch)
+
+### Bug Fixes:
+
+* duplication: address upstream review findings
+
+* map: copy action-accepted attrs and actually copy signatures on duplicate
+
+* map: copy signatures during duplication + harden endpoint guard test
+
+* map: copy only action-accepted attrs when duplicating a map
+
+* requesting another map's id returned 200 with its data.
+
+* api: replace broken Ash.Expr.ref/2 filters with nested keyword filters
+
+## [v1.102.0](https://github.com/wanderer-industries/wanderer/compare/v1.101.19...v1.102.0) (2026-09-14)
+
+
+
+
+### Features:
+
+* map: export and import map contents
+
+### Bug Fixes:
+
+* map: make an import count and carry what it says it does
+
+## [v1.101.19](https://github.com/wanderer-industries/wanderer/compare/v1.101.18...v1.101.19) (2026-09-11)
+
+
+
+
+### Bug Fixes:
+
+* map: Fixed links in Description - now it opens sites in new tab
+
+## [v1.101.18](https://github.com/wanderer-industries/wanderer/compare/v1.101.17...v1.101.18) (2026-09-11)
+
+
+
+
+### Bug Fixes:
+
+* make map webhooks usable
+
+## [v1.101.17](https://github.com/wanderer-industries/wanderer/compare/v1.101.16...v1.101.17) (2026-09-11)
+
+
+
+
+### Bug Fixes:
+
+* chore: Fix to_6 migration
+
+## [v1.101.16](https://github.com/wanderer-industries/wanderer/compare/v1.101.15...v1.101.16) (2026-09-11)
+
+
+
+
+### Bug Fixes:
+
+* map: Added ability to select type of dotlan opening settings for system
+
+## [v1.101.15](https://github.com/wanderer-industries/wanderer/compare/v1.101.14...v1.101.15) (2026-09-10)
+
+
+
+
+### Bug Fixes:
+
+* chore: revision
+
+* chore: Expand scroll height
+
+* chore: Added ability to open Jump planer from Right bar. Also changed icon for Wormholes References
+
+* chore: Refactor Jump planner
+
+* chore: Added ability to select skill levels and some additional options
+
+* chore: Added storing jump planner data. Changed selection of ship type
+
+* core: Route planner v2 first prototype
+
+## [v1.101.14](https://github.com/wanderer-industries/wanderer/compare/v1.101.13...v1.101.14) (2026-09-03)
+
+
+
+
+## [v1.101.13](https://github.com/wanderer-industries/wanderer/compare/v1.101.12...v1.101.13) (2026-08-17)
 
 
 

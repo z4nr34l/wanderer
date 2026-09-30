@@ -95,8 +95,6 @@ export const AdminSettings = () => {
       <div className="flex flex-col gap-1">
         <div>
           <WdButton
-            // @ts-ignore
-            ref={cfRef}
             onClick={cfShow}
             icon="pi pi-save"
             size="small"

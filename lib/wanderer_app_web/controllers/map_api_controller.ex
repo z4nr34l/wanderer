@@ -1071,7 +1071,7 @@ defmodule WandererAppWeb.MapAPIController do
   operation(:toggle_webhooks,
     summary: "Toggle webhooks for a map",
     parameters: [
-      map_id: [
+      map_identifier: [
         in: :path,
         schema: %OpenApiSpex.Schema{type: :string},
         required: true,
@@ -1106,7 +1106,7 @@ defmodule WandererAppWeb.MapAPIController do
     }
   )
 
-  def toggle_webhooks(conn, %{"map_id" => map_identifier, "enabled" => enabled}) do
+  def toggle_webhooks(conn, %{"map_identifier" => map_identifier, "enabled" => enabled}) do
     with {:ok, enabled_boolean} <- validate_boolean_param(enabled, "enabled"),
          :ok <- check_global_webhooks_enabled(),
          {:ok, map} <- resolve_map_identifier(map_identifier),
@@ -1140,6 +1140,13 @@ defmodule WandererAppWeb.MapAPIController do
         |> put_status(:bad_request)
         |> json(%{error: "Failed to update webhook settings: #{APIUtils.format_error(reason)}"})
     end
+  end
+
+  def toggle_webhooks(conn, %{"map_id" => map_identifier} = params) do
+    toggle_webhooks(
+      conn,
+      params |> Map.delete("map_id") |> Map.put("map_identifier", map_identifier)
+    )
   end
 
   # Helper functions for webhook toggle
@@ -1336,7 +1343,9 @@ defmodule WandererAppWeb.MapAPIController do
   def export_map(%{assigns: %{map_id: map_id}} = conn, params) do
     include_signatures = params["include_signatures"] not in ["false", false]
 
-    case WandererApp.Map.Operations.Transfer.export(map_id, include_signatures: include_signatures) do
+    case WandererApp.Map.Operations.Transfer.export(map_id,
+           include_signatures: include_signatures
+         ) do
       {:ok, data} ->
         json(conn, %{data: data})
 
@@ -1354,10 +1363,13 @@ defmodule WandererAppWeb.MapAPIController do
 
   Replays an exported document into this map. Systems that already exist are left untouched.
   """
+  # AssignMapOwner assigns both keys even when it cannot resolve an owner, so the guard is what
+  # sends an unresolvable owner to the clause below instead of into an import with a nil user.
   def import_map(
         %{assigns: %{map_id: map_id, owner_character_id: char_id, owner_user_id: user_id}} = conn,
         params
-      ) do
+      )
+      when not is_nil(char_id) and not is_nil(user_id) do
     document = params["data"] || params
 
     include_signatures = params["include_signatures"] not in ["false", false]
