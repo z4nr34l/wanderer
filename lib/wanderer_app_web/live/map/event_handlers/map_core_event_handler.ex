@@ -635,6 +635,22 @@ defmodule WandererAppWeb.MapCoreEventHandler do
     end
   end
 
+  # Who a pilot will meet somewhere, which sovereignty does not answer and the rats answer for a
+  # different question. Asked a system at a time, and cached on the way out, so a quiet map costs
+  # zKillboard nothing.
+  def handle_ui_event("get_who_flies_here", %{"solar_system_id" => solar_system_id}, socket) do
+    case to_solar_system_id(solar_system_id) do
+      id when is_integer(id) ->
+        case WandererApp.Zkb.SystemStats.who_flies_here(id) do
+          {:ok, stats} -> {:reply, %{stats: stats}, socket}
+          {:error, reason} -> {:reply, %{error: to_string(reason)}, socket}
+        end
+
+      _ ->
+        {:reply, %{error: "invalid"}, socket}
+    end
+  end
+
   def handle_ui_event("noop", _, socket), do: {:noreply, socket}
 
   def handle_ui_event(

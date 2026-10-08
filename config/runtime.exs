@@ -178,6 +178,9 @@ config :wanderer_app,
     System.get_env("WANDERER_CHARACTER_TRACKING_PAUSE_DISABLED", "true")
     |> String.to_existing_atom(),
   character_api_disabled: character_api_disabled,
+  # zKillboard asks callers to say who they are and how to reach them; an instance that wants to
+  # be reachable sets this, and anything unset identifies the app alone
+  zkb_user_agent: System.get_env("WANDERER_ZKB_USER_AGENT"),
   wanderer_kills_service_enabled: wanderer_kills_service_enabled,
   wanderer_kills_base_url: wanderer_kills_base_url,
   map_subscriptions_enabled: map_subscriptions_enabled,

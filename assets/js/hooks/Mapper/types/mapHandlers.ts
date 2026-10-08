@@ -323,6 +323,7 @@ export enum OutCommand {
   getKnownHomes = 'get_known_homes',
   getHomeWaysIn = 'get_home_ways_in',
   getLinkedMap = 'get_linked_map',
+  getWhoFliesHere = 'get_who_flies_here',
   updateMapSystemLabels = 'update_map_system_labels',
   saveDefaultSettings = 'save_default_settings',
   getDefaultSettings = 'get_default_settings',
