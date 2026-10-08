@@ -270,7 +270,7 @@ defmodule WandererApp.Map.RoutesBy do
         [map_chains | [bridges | thera_chains]]
         |> List.flatten()
         |> reject_unusable_bridges(map_id, routes_settings)
-        |> remove_intersection()
+        |> WandererApp.Map.Routes.chain_pairs()
 
       chains =
         case routes_settings.include_cruise do
@@ -293,25 +293,5 @@ defmodule WandererApp.Map.RoutesBy do
       end)
       |> List.flatten()
     end
-  end
-
-  defp remove_intersection(pairs_arr) do
-    tuples = pairs_arr |> Enum.map(fn x -> {x.first, x.second} end)
-
-    tuples
-    |> Enum.reduce([], fn {first, second} = x, acc ->
-      if Enum.member?(tuples, {second, first}) do
-        acc
-      else
-        [x | acc]
-      end
-    end)
-    |> Enum.uniq()
-    |> Enum.map(fn {first, second} ->
-      %{
-        first: first,
-        second: second
-      }
-    end)
   end
 end

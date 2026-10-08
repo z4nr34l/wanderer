@@ -135,7 +135,7 @@ defmodule WandererApp.Map.Routes do
           bridges = WandererApp.Map.Bridges.route_pairs(map_id, routes_settings)
 
           chains =
-            remove_intersection([map_chains | [bridges | thera_chains]] |> List.flatten())
+            chain_pairs([map_chains | [bridges | thera_chains]] |> List.flatten())
 
           chains =
             case routes_settings.include_cruise do
@@ -356,23 +356,17 @@ defmodule WandererApp.Map.Routes do
 
   defp pair_key(first, second), do: {min(first, second), max(first, second)}
 
-  defp remove_intersection(pairs_arr) do
-    tuples = pairs_arr |> Enum.map(fn x -> {x.first, x.second} end)
+  @doc """
+  One entry per undirected pair, whichever way round each was named.
 
-    tuples
-    |> Enum.reduce([], fn {first, second} = x, acc ->
-      if Enum.member?(tuples, {second, first}) do
-        acc
-      else
-        [x | acc]
-      end
-    end)
-    |> Enum.uniq()
-    |> Enum.map(fn {first, second} ->
-      %{
-        first: first,
-        second: second
-      }
+  A pair named twice - once by a bridge drawn on the map, once by the imported list, and the two
+  written end-first in opposite order - used to cancel itself out: both copies were dropped and
+  the systems lost their road. One of each pair is what is wanted, and the caller walks it in
+  both directions anyway.
+  """
+  def chain_pairs(pairs_arr) do
+    Enum.uniq_by(pairs_arr, fn %{first: first, second: second} ->
+      {min(first, second), max(first, second)}
     end)
   end
 
