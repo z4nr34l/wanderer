@@ -495,7 +495,12 @@
               </ul>
             </div>
           </div>
-          <div class="p-tabview-panels" data-pc-section="panelcontainer">
+          <%!-- a tab's contents can run long - the bridge list is as long as the network -
+          so the panels scroll rather than pushing the dialog off the screen --%>
+          <div
+            class="p-tabview-panels max-h-[70vh] overflow-y-auto"
+            data-pc-section="panelcontainer"
+          >
             <div
               id="pr_id_330_content"
               class="p-tabview-panel"
@@ -721,7 +726,9 @@
               <div :if={@active_settings_tab == "bridges"} class="p-6">
                 <h2 class="text-lg font-semibold mb-2">Jump bridges</h2>
                 <p class="text-sm text-stone-400 mb-4">
-                  Read the corporation's Ansiblex gates straight from EVE, or paste a list.
+                  Read the corporation's Ansiblex gates straight from EVE, or paste a list - one
+                  bridge per line, written any way a copy produces it: <span class="font-mono text-stone-300">UALX-3 » 1DQ1-A</span>, <span class="font-mono text-stone-300">T5ZI-S -> 1DQ1-A</span>, or an alliance
+                  list's <span class="font-mono text-stone-300">PQRE-W 1-1 --> A-7XFN 3-1</span>.
                   Bridges are counted when a route is worked out, and are not drawn on the map.
                   A bridge marked dangerous is skipped for anyone who has "Avoid dangerous bridges"
                   set in the route settings; "Use jump bridges" there turns all of them off.
@@ -738,7 +745,7 @@
                     field={f[:bridges]}
                     label="Paste the list"
                     rows="8"
-                    placeholder="UALX-3 » 1DQ1-A\nT5ZI-S -> 1DQ1-A"
+                    placeholder="UALX-3 » 1DQ1-A"
                   />
 
                   <.input
