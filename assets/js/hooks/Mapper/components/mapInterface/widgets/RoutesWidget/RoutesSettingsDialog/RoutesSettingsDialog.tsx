@@ -22,7 +22,7 @@ const checkboxes: { label: string; propName: keyof RoutesFlagsType }[] = [
   { label: 'Avoid Pochven', propName: 'avoid_pochven' },
   { label: 'Avoid Edencom systems', propName: 'avoid_edencom' },
   { label: 'Avoid Triglavian systems', propName: 'avoid_triglavian' },
-  { label: 'Use jump bridges', propName: 'include_bridges' },
+  { label: 'Use jump bridges (your alliance only)', propName: 'include_bridges' },
   { label: 'Avoid dangerous bridges', propName: 'avoid_dangerous_bridges' },
   { label: 'Avoid bubbled connections', propName: 'avoid_bubbled_connections' },
 ];

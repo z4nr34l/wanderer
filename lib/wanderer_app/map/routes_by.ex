@@ -215,6 +215,20 @@ defmodule WandererApp.Map.RoutesBy do
     |> Enum.uniq()
   end
 
+  # a gate belonging to anybody but the pilot's own alliance is no longer a road
+  defp reject_unusable_bridges(chains, map_id, routes_settings) do
+    pairs =
+      WandererApp.Map.Routes.unusable_bridge_pairs(map_id, Map.get(routes_settings, :alliance_id))
+
+    if MapSet.size(pairs) == 0 do
+      chains
+    else
+      Enum.reject(chains, fn %{first: first, second: second} ->
+        MapSet.member?(pairs, {min(first, second), max(first, second)})
+      end)
+    end
+  end
+
   defp normalize_security_type("high"), do: "high"
   defp normalize_security_type(:high), do: "high"
   defp normalize_security_type("low"), do: "low"
@@ -252,7 +266,11 @@ defmodule WandererApp.Map.RoutesBy do
 
       bridges = WandererApp.Map.Bridges.route_pairs(map_id, routes_settings)
 
-      chains = remove_intersection([map_chains | [bridges | thera_chains]] |> List.flatten())
+      chains =
+        [map_chains | [bridges | thera_chains]]
+        |> List.flatten()
+        |> reject_unusable_bridges(map_id, routes_settings)
+        |> remove_intersection()
 
       chains =
         case routes_settings.include_cruise do

@@ -15,9 +15,6 @@ defmodule WandererApp.Map.Homes do
   # EVE gives every J-space system an id in this range, Thera and the shattered ones included
   @j_space_id 31_000_000
 
-  # what the game calls high sec once it has rounded the number
-  @high_sec 0.45
-
   @type home :: %{
           map_id: String.t(),
           map_name: String.t(),

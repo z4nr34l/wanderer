@@ -294,12 +294,15 @@ defmodule WandererApp.Map.Routes do
   defp reject_avoided_connections(chains, map_id, routes_settings) do
     avoid_dangerous = Map.get(routes_settings, :avoid_dangerous_bridges, false)
     avoid_bubbled = Map.get(routes_settings, :avoid_bubbled_connections, false)
+    alliance_id = Map.get(routes_settings, :alliance_id)
 
-    if not avoid_dangerous and not avoid_bubbled do
+    pairs =
+      avoided_pairs(map_id, avoid_dangerous, avoid_bubbled)
+      |> MapSet.union(unusable_bridge_pairs(map_id, alliance_id))
+
+    if MapSet.size(pairs) == 0 do
       chains
     else
-      pairs = avoided_pairs(map_id, avoid_dangerous, avoid_bubbled)
-
       chains
       |> Enum.reject(fn %{first: first, second: second} ->
         MapSet.member?(pairs, pair_key(first, second))
@@ -328,6 +331,27 @@ defmodule WandererApp.Map.Routes do
     bubbled? = avoid_bubbled and (connection.bubbled || 0) > 0
 
     dangerous_bridge? or bubbled?
+  end
+
+  # a bridge somebody drew is a road only where the pilot's own alliance holds both ends
+  @doc false
+  def unusable_bridge_pairs(map_id, alliance_id) do
+    case WandererApp.MapConnectionRepo.get_by_map(map_id) do
+      {:ok, connections} ->
+        connections
+        |> Enum.filter(&(&1.type == @bridge_connection_type))
+        |> Enum.reject(
+          &WandererApp.Map.Ansiblex.usable?(
+            &1.solar_system_source,
+            &1.solar_system_target,
+            alliance_id
+          )
+        )
+        |> MapSet.new(&pair_key(&1.solar_system_source, &1.solar_system_target))
+
+      _ ->
+        MapSet.new()
+    end
   end
 
   defp pair_key(first, second), do: {min(first, second), max(first, second)}

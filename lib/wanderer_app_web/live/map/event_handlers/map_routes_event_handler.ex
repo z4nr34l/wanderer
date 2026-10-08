@@ -101,7 +101,7 @@ defmodule WandererAppWeb.MapRoutesEventHandler do
           map_id,
           route_hubs,
           solar_system_id,
-          get_routes_settings(routes_settings),
+          routes_settings |> get_routes_settings() |> with_alliance(socket),
           is_hubs_limit_reached
         )
 
@@ -146,7 +146,7 @@ defmodule WandererAppWeb.MapRoutesEventHandler do
             map_id,
             hubs,
             solar_system_id,
-            get_routes_settings(routes_settings),
+            routes_settings |> get_routes_settings() |> with_alliance(socket),
             is_hubs_limit_reached
           )
 
@@ -187,6 +187,7 @@ defmodule WandererAppWeb.MapRoutesEventHandler do
     routes_settings =
       routes_settings
       |> get_routes_settings()
+      |> with_alliance(socket)
       |> Map.put(:security_type, security_type)
 
     Task.async(fn ->
@@ -415,19 +416,21 @@ defmodule WandererAppWeb.MapRoutesEventHandler do
   def handle_ui_event(event, body, socket),
     do: MapCoreEventHandler.handle_ui_event(event, body, socket)
 
-  defp get_routes_settings(%{
-         "path_type" => path_type,
-         "include_mass_crit" => include_mass_crit,
-         "include_eol" => include_eol,
-         "include_frig" => include_frig,
-         "include_cruise" => include_cruise,
-         "avoid_wormholes" => avoid_wormholes,
-         "avoid_pochven" => avoid_pochven,
-         "avoid_edencom" => avoid_edencom,
-         "avoid_triglavian" => avoid_triglavian,
-         "include_thera" => include_thera,
-         "avoid" => avoid
-       } = settings),
+  defp get_routes_settings(
+         %{
+           "path_type" => path_type,
+           "include_mass_crit" => include_mass_crit,
+           "include_eol" => include_eol,
+           "include_frig" => include_frig,
+           "include_cruise" => include_cruise,
+           "avoid_wormholes" => avoid_wormholes,
+           "avoid_pochven" => avoid_pochven,
+           "avoid_edencom" => avoid_edencom,
+           "avoid_triglavian" => avoid_triglavian,
+           "include_thera" => include_thera,
+           "avoid" => avoid
+         } = settings
+       ),
        do: %{
          path_type: path_type,
          include_mass_crit: include_mass_crit,
@@ -441,12 +444,28 @@ defmodule WandererAppWeb.MapRoutesEventHandler do
          include_thera: include_thera,
          avoid_dangerous_bridges: Map.get(settings, "avoid_dangerous_bridges", false),
          include_bridges: Map.get(settings, "include_bridges", true),
-         avoid_bubbled_connections:
-           Map.get(settings, "avoid_bubbled_connections", false),
+         avoid_bubbled_connections: Map.get(settings, "avoid_bubbled_connections", false),
          avoid: avoid
        }
 
   defp get_routes_settings(_), do: %{}
+
+  # An Ansiblex is only a road for the alliance that owns it, so which routes exist depends on who
+  # is looking. The main character is the one flying, so its alliance is the one that counts.
+  defp with_alliance(settings, socket) do
+    Map.put(settings, :alliance_id, viewer_alliance_id(socket))
+  end
+
+  defp viewer_alliance_id(%{assigns: assigns}) do
+    with character_id when is_binary(character_id) <- assigns[:main_character_id],
+         {:ok, %{alliance_id: alliance_id}} <- WandererApp.Character.get_character(character_id) do
+      alliance_id
+    else
+      _ -> nil
+    end
+  end
+
+  defp viewer_alliance_id(_socket), do: nil
 
   defp set_autopilot_waypoint(
          current_user,
