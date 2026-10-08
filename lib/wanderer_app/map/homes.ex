@@ -102,6 +102,8 @@ defmodule WandererApp.Map.Homes do
     end
   end
 
+  def ways_in(_map_id, _home), do: empty()
+
   @doc """
   Turns what `ways_in/2` selected into what goes over the wire.
 
@@ -129,8 +131,6 @@ defmodule WandererApp.Map.Homes do
   end
 
   def to_wire(_other), do: %{"systems" => [], "connections" => [], "markers" => %{}}
-
-  def ways_in(_map_id, _home), do: empty()
 
   defp empty, do: %{systems: [], connections: [], markers: %{}}
 

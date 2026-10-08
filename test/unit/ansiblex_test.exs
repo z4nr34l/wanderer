@@ -31,29 +31,32 @@ defmodule WandererApp.Map.AnsiblexTest do
     :ok
   end
 
-  describe "usable?/3" do
-    test "a gate inside our own sovereignty is a road" do
-      assert Ansiblex.usable?(@home, @far_side, @ours)
+  describe "foreign?/3" do
+    test "a gate inside our own sovereignty is ours to fly" do
+      refute Ansiblex.foreign?(@home, @far_side, @ours)
     end
 
-    test "a gate belonging to another alliance is not, whichever way it is read" do
-      refute Ansiblex.usable?(@home, @their_space, @ours)
-      refute Ansiblex.usable?(@their_space, @home, @ours)
-      refute Ansiblex.usable?(@their_space, @their_space, @ours)
+    test "a gate running into another alliance's space is theirs, whichever way it is read" do
+      assert Ansiblex.foreign?(@home, @their_space, @ours)
+      assert Ansiblex.foreign?(@their_space, @home, @ours)
+      assert Ansiblex.foreign?(@their_space, @their_space, @ours)
     end
 
-    test "nobody flies a gate in space no alliance holds" do
-      refute Ansiblex.usable?(@home, @no_sov, @ours)
-      refute Ansiblex.usable?(@no_sov, @no_sov, @ours)
+    test "their own gates are theirs to fly, and ours are not" do
+      refute Ansiblex.foreign?(@their_space, @their_space, @theirs)
+      assert Ansiblex.foreign?(@home, @far_side, @theirs)
     end
 
-    test "a pilot without an alliance flies no gate at all" do
-      refute Ansiblex.usable?(@home, @far_side, nil)
+    # the rule is only allowed to take a road away on what it knows: sovereignty comes from a
+    # background fetch, and an empty one must not empty the map
+    test "space nobody holds is left alone" do
+      refute Ansiblex.foreign?(@home, @no_sov, @ours)
+      refute Ansiblex.foreign?(@no_sov, @no_sov, @ours)
     end
 
-    test "their own gates are roads for them, and not for us" do
-      assert Ansiblex.usable?(@their_space, @their_space, @theirs)
-      refute Ansiblex.usable?(@home, @far_side, @theirs)
+    test "a pilot whose alliance is not known loses nothing" do
+      refute Ansiblex.foreign?(@home, @far_side, nil)
+      refute Ansiblex.foreign?(@their_space, @their_space, nil)
     end
   end
 

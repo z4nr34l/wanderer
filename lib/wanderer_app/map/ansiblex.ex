@@ -25,20 +25,26 @@ defmodule WandererApp.Map.Ansiblex do
   """
 
   @doc """
-  Whether a pilot in `alliance_id` may fly a bridge between these two systems.
+  Whether this bridge belongs to somebody other than the pilot, and so cannot be flown.
 
-  Without an alliance there is nothing to check against, and a pilot in no alliance may fly no
-  Ansiblex at all, so the answer is the same either way: no.
+  The question is asked this way round on purpose. Sovereignty is read from a background fetch
+  that can be empty at startup or after an ESI hiccup, and the pilot's alliance is not always
+  loaded either; answering "unusable" on missing data would quietly empty every route on the map.
+  So a bridge is dropped only where it can be shown to belong to another alliance, and anything
+  unknown is left to the list that was curated by hand.
   """
-  @spec usable?(integer() | nil, integer() | nil, integer() | nil) :: boolean()
-  def usable?(_source, _target, nil), do: false
-
-  def usable?(source, target, alliance_id)
+  @spec foreign?(integer() | nil, integer() | nil, integer() | nil) :: boolean()
+  def foreign?(source, target, alliance_id)
       when is_integer(source) and is_integer(target) and is_integer(alliance_id) do
-    holder(source) == alliance_id and holder(target) == alliance_id
+    case {holder(source), holder(target)} do
+      {nil, _} -> false
+      {_, nil} -> false
+      {same, same} when same == alliance_id -> false
+      _ -> true
+    end
   end
 
-  def usable?(_source, _target, _alliance_id), do: false
+  def foreign?(_source, _target, _alliance_id), do: false
 
   @doc """
   The alliance holding sovereignty over a system, or nil where nobody does.

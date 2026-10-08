@@ -90,9 +90,18 @@ defmodule WandererApp.Map.Bridges do
     if Map.get(routes_settings, :include_bridges, true) do
       avoid_dangerous = Map.get(routes_settings, :avoid_dangerous_bridges, false)
 
+      alliance_id = Map.get(routes_settings, :alliance_id)
+
       map_id
       |> list()
       |> Enum.reject(&(avoid_dangerous and &1.dangerous))
+      |> Enum.reject(
+        &WandererApp.Map.Ansiblex.foreign?(
+          &1.solar_system_source,
+          &1.solar_system_target,
+          alliance_id
+        )
+      )
       |> Enum.map(&%{first: &1.solar_system_source, second: &1.solar_system_target})
     else
       []
@@ -339,5 +348,23 @@ defmodule WandererApp.Map.Bridges do
     |> String.trim_leading("-")
     |> String.trim_trailing("-")
     |> String.trim()
+    |> drop_grid_marker()
+  end
+
+  # Alliance bridge lists carry a marker after the system, as in "PQRE-W 1-1", and the system is
+  # what we are after. One system is actually called 5-3722, so a name that is nothing but the
+  # marker is a name, not a marker, and is left alone.
+  defp drop_grid_marker(name) do
+    case String.split(name, ~r/\s+/) do
+      [_only] ->
+        name
+
+      tokens ->
+        if Regex.match?(~r/^\d+-\d+$/, List.last(tokens)) do
+          tokens |> Enum.drop(-1) |> Enum.join(" ")
+        else
+          name
+        end
+    end
   end
 end

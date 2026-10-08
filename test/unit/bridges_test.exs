@@ -61,6 +61,31 @@ defmodule WandererApp.Map.BridgesTest do
     end
   end
 
+  describe "parse/1 on an alliance's own bridge list" do
+    test "reads the arrow and the grid marker such a list is written with" do
+      text = """
+      PQRE-W 1-1  -->  A-7XFN 3-1
+      H-FGJO 2-1  -->  G3D-ZT 2-1
+      """
+
+      assert %{pairs: pairs, unreadable: []} = Bridges.parse(text)
+
+      assert pairs == [
+               %{source: "PQRE-W", target: "A-7XFN"},
+               %{source: "H-FGJO", target: "G3D-ZT"}
+             ]
+    end
+
+    test "leaves a system whose whole name reads like a marker alone" do
+      # 5-3722 is a real system, not a grid reference
+      assert {:ok, %{source: "5-3722", target: "X-7OMU"}} =
+               Bridges.parse_line("5-3722 --> X-7OMU")
+
+      assert {:ok, %{source: "5-3722", target: "X-7OMU"}} =
+               Bridges.parse_line("5-3722 2-1 --> X-7OMU 1-1")
+    end
+  end
+
   describe "route_pairs/2" do
     setup do
       map_id = Ecto.UUID.generate()

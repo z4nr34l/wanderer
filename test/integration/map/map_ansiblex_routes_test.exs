@@ -43,16 +43,17 @@ defmodule WandererApp.Map.AnsiblexRoutesTest do
       assert MapSet.size(Routes.unusable_bridge_pairs(map.map_id, @ours)) == 1
     end
 
-    test "drops a bridge in space nobody holds", %{map: map} do
+    # sovereignty comes from a background fetch, so an empty one must not empty the map
+    test "leaves a bridge alone in space nobody holds", %{map: map} do
       hold(%{})
 
-      assert MapSet.size(Routes.unusable_bridge_pairs(map.map_id, @ours)) == 1
+      assert MapSet.size(Routes.unusable_bridge_pairs(map.map_id, @ours)) == 0
     end
 
-    test "drops every bridge for a pilot with no alliance", %{map: map} do
-      hold(%{@system_a => @ours, @system_b => @ours})
+    test "takes nothing away from a pilot whose alliance is not known", %{map: map} do
+      hold(%{@system_a => @theirs, @system_b => @theirs})
 
-      assert MapSet.size(Routes.unusable_bridge_pairs(map.map_id, nil)) == 1
+      assert MapSet.size(Routes.unusable_bridge_pairs(map.map_id, nil)) == 0
     end
 
     test "their gate is a road for them and not for us", %{map: map} do

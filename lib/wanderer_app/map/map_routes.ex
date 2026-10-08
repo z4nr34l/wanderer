@@ -340,8 +340,8 @@ defmodule WandererApp.Map.Routes do
       {:ok, connections} ->
         connections
         |> Enum.filter(&(&1.type == @bridge_connection_type))
-        |> Enum.reject(
-          &WandererApp.Map.Ansiblex.usable?(
+        |> Enum.filter(
+          &WandererApp.Map.Ansiblex.foreign?(
             &1.solar_system_source,
             &1.solar_system_target,
             alliance_id
