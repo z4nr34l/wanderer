@@ -41,6 +41,7 @@ export const DEFAULT_ROUTES_SETTINGS: RoutesType = {
   avoid_triglavian: false,
   avoid_dangerous_bridges: false,
   include_bridges: true,
+  flying_capital: false,
   avoid_bubbled_connections: false,
   avoid: [],
 };

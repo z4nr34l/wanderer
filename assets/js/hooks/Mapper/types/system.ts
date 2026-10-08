@@ -66,9 +66,12 @@ export const SYSTEM_STATIC_INFO_MAP = {
 };
 
 export type SovereigntyInfo = {
-  alliance_id: number;
-  alliance_name: string;
-  alliance_ticker: string;
+  alliance_id?: number;
+  alliance_name?: string;
+  alliance_ticker?: string;
+  // null sec no alliance holds is still somebody's: CCP names the faction whose space it is
+  faction_id?: number;
+  faction_name?: string;
 };
 
 export type SolarSystemStaticInfoRaw = {

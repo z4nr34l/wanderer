@@ -72,7 +72,11 @@ defmodule WandererApp.Server.SovereigntyDataFetcher do
       case result do
         {:ok, sovereignty} ->
           WandererApp.Cache.insert(@name, sovereignty)
-          Logger.debug(fn -> "#{__MODULE__} holds sovereignty for #{map_size(sovereignty)} systems" end)
+
+          Logger.debug(fn ->
+            "#{__MODULE__} holds sovereignty for #{map_size(sovereignty)} systems"
+          end)
+
           @refresh_timeout
 
         {:error, reason} ->
@@ -100,8 +104,14 @@ defmodule WandererApp.Server.SovereigntyDataFetcher do
     case WandererApp.Esi.get_sovereignty_map() do
       {:ok, entries} when is_list(entries) ->
         held = Enum.filter(entries, &is_integer(&1["alliance_id"]))
+        npc = Enum.filter(entries, &is_integer(&1["faction_id"]))
 
-        {:ok, build_sovereignty(held, alliances(held))}
+        sovereignty =
+          held
+          |> build_sovereignty(alliances(held))
+          |> Map.merge(build_npc(npc, factions()))
+
+        {:ok, sovereignty}
 
       {:ok, other} ->
         {:error, {:unexpected_body, other}}
@@ -126,6 +136,31 @@ defmodule WandererApp.Server.SovereigntyDataFetcher do
       end
     end)
     |> Map.new()
+  end
+
+  # Most of null sec that no alliance holds is still somebody's: CCP names the faction whose
+  # space it is on the same map, which is what tells a reader who is around out there. It is not
+  # sovereignty an alliance can lose, so it is kept apart from the alliance a system is held by -
+  # nothing that asks "which alliance holds this" may read a faction and think it has an answer.
+  defp build_npc(npc, factions) do
+    npc
+    |> Enum.flat_map(fn %{"system_id" => solar_system_id, "faction_id" => faction_id} ->
+      case Map.get(factions, faction_id) do
+        nil -> []
+        name -> [{solar_system_id, %{faction_id: faction_id, faction_name: name}}]
+      end
+    end)
+    |> Map.new()
+  end
+
+  defp factions do
+    case WandererApp.Esi.get_factions() do
+      {:ok, factions} when is_list(factions) ->
+        Map.new(factions, &{&1["faction_id"], &1["name"]})
+
+      _ ->
+        %{}
+    end
   end
 
   # One lookup per alliance rather than per system - a few dozen holders cover all of null sec,

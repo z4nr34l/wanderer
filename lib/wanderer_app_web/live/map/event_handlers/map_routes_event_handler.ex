@@ -444,6 +444,7 @@ defmodule WandererAppWeb.MapRoutesEventHandler do
          include_thera: include_thera,
          avoid_dangerous_bridges: Map.get(settings, "avoid_dangerous_bridges", false),
          include_bridges: Map.get(settings, "include_bridges", true),
+         flying_capital: Map.get(settings, "flying_capital", false),
          avoid_bubbled_connections: Map.get(settings, "avoid_bubbled_connections", false),
          avoid: avoid
        }

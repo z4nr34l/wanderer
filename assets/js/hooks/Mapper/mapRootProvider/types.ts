@@ -62,6 +62,7 @@ export type RoutesType = {
   avoid_triglavian: boolean;
   avoid_dangerous_bridges: boolean;
   include_bridges: boolean;
+  flying_capital: boolean;
   avoid_bubbled_connections: boolean;
   avoid: number[];
 };

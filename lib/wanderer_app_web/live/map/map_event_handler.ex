@@ -450,8 +450,42 @@ defmodule WandererAppWeb.MapEventHandler do
       # static info rather than needing its own round trip
       |> Map.put(
         :sovereignty,
-        WandererApp.Server.SovereigntyDataFetcher.get_sovereignty(
-          Map.get(system_static_info, :solar_system_id)
-        )
+        sovereignty_of(system_static_info)
       )
+
+  # CCP names a faction for empire space too - Jita comes back as CONCORD - and a chip saying so
+  # on every high sec system is noise. The question a faction answers is who is around out in the
+  # null sec nobody claims, so that is the only place it is passed on.
+  defp sovereignty_of(system_static_info) do
+    case WandererApp.Server.SovereigntyDataFetcher.get_sovereignty(
+           Map.get(system_static_info, :solar_system_id)
+         ) do
+      %{alliance_id: _} = held ->
+        held
+
+      %{faction_id: _} = faction ->
+        if null_sec?(system_static_info), do: faction, else: nil
+
+      _ ->
+        nil
+    end
+  end
+
+  defp null_sec?(system_static_info) do
+    case to_security(Map.get(system_static_info, :security)) do
+      security when is_number(security) -> security <= 0.0
+      _ -> false
+    end
+  end
+
+  defp to_security(security) when is_number(security), do: security
+
+  defp to_security(security) when is_binary(security) do
+    case Float.parse(security) do
+      {parsed, _rest} -> parsed
+      :error -> nil
+    end
+  end
+
+  defp to_security(_security), do: nil
 end

@@ -87,7 +87,9 @@ defmodule WandererApp.Map.Bridges do
   """
   @spec route_pairs(String.t(), map()) :: [%{first: integer(), second: integer()}]
   def route_pairs(map_id, routes_settings) do
-    if Map.get(routes_settings, :include_bridges, true) do
+    # a capital flies no Ansiblex at all since the Cradle of War update
+    if Map.get(routes_settings, :include_bridges, true) and
+         not Map.get(routes_settings, :flying_capital, false) do
       avoid_dangerous = Map.get(routes_settings, :avoid_dangerous_bridges, false)
 
       alliance_id = Map.get(routes_settings, :alliance_id)

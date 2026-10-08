@@ -56,6 +56,14 @@ defmodule WandererApp.Map.AnsiblexRoutesTest do
       assert MapSet.size(Routes.unusable_bridge_pairs(map.map_id, nil)) == 0
     end
 
+    # CCP took the Ansiblex away from capitals in the Cradle of War update
+    test "a capital flies no bridge, even one of our own", %{map: map} do
+      hold(%{@system_a => @ours, @system_b => @ours})
+
+      assert MapSet.size(Routes.unusable_bridge_pairs(map.map_id, @ours, false)) == 0
+      assert MapSet.size(Routes.unusable_bridge_pairs(map.map_id, @ours, true)) == 1
+    end
+
     test "their gate is a road for them and not for us", %{map: map} do
       hold(%{@system_a => @theirs, @system_b => @theirs})
 

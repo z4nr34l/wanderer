@@ -28,6 +28,7 @@ defmodule WandererApp.Esi do
   defdelegate get_corporation_wallet_transactions(corporation_id, division, opts \\ []),
     to: WandererApp.Esi.ApiClient
 
+  defdelegate get_factions(), to: WandererApp.Esi.ApiClient
   defdelegate get_character_location(character_eve_id, opts \\ []), to: WandererApp.Esi.ApiClient
   defdelegate get_character_online(character_eve_id, opts \\ []), to: WandererApp.Esi.ApiClient
   defdelegate get_character_ship(character_eve_id, opts \\ []), to: WandererApp.Esi.ApiClient

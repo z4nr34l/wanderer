@@ -17,6 +17,7 @@ defmodule WandererApp.Map.Routes do
     avoid_triglavian: false,
     avoid_dangerous_bridges: false,
     include_bridges: true,
+    flying_capital: false,
     avoid_bubbled_connections: false,
     include_thera: true,
     avoid: []
@@ -295,10 +296,11 @@ defmodule WandererApp.Map.Routes do
     avoid_dangerous = Map.get(routes_settings, :avoid_dangerous_bridges, false)
     avoid_bubbled = Map.get(routes_settings, :avoid_bubbled_connections, false)
     alliance_id = Map.get(routes_settings, :alliance_id)
+    flying_capital = Map.get(routes_settings, :flying_capital, false)
 
     pairs =
       avoided_pairs(map_id, avoid_dangerous, avoid_bubbled)
-      |> MapSet.union(unusable_bridge_pairs(map_id, alliance_id))
+      |> MapSet.union(unusable_bridge_pairs(map_id, alliance_id, flying_capital))
 
     if MapSet.size(pairs) == 0 do
       chains
@@ -335,19 +337,25 @@ defmodule WandererApp.Map.Routes do
 
   # a bridge somebody drew is a road only where the pilot's own alliance holds both ends
   @doc false
-  def unusable_bridge_pairs(map_id, alliance_id) do
+  def unusable_bridge_pairs(map_id, alliance_id, flying_capital \\ false) do
     case WandererApp.MapConnectionRepo.get_by_map(map_id) do
       {:ok, connections} ->
-        connections
-        |> Enum.filter(&(&1.type == @bridge_connection_type))
-        |> Enum.filter(
-          &WandererApp.Map.Ansiblex.foreign?(
-            &1.solar_system_source,
-            &1.solar_system_target,
-            alliance_id
+        bridges = Enum.filter(connections, &(&1.type == @bridge_connection_type))
+
+        # a capital flies no Ansiblex at all since the Cradle of War update
+        if flying_capital do
+          MapSet.new(bridges, &pair_key(&1.solar_system_source, &1.solar_system_target))
+        else
+          bridges
+          |> Enum.filter(
+            &WandererApp.Map.Ansiblex.foreign?(
+              &1.solar_system_source,
+              &1.solar_system_target,
+              alliance_id
+            )
           )
-        )
-        |> MapSet.new(&pair_key(&1.solar_system_source, &1.solar_system_target))
+          |> MapSet.new(&pair_key(&1.solar_system_source, &1.solar_system_target))
+        end
 
       _ ->
         MapSet.new()

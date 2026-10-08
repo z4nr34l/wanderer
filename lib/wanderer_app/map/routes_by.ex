@@ -218,7 +218,11 @@ defmodule WandererApp.Map.RoutesBy do
   # a gate belonging to anybody but the pilot's own alliance is no longer a road
   defp reject_unusable_bridges(chains, map_id, routes_settings) do
     pairs =
-      WandererApp.Map.Routes.unusable_bridge_pairs(map_id, Map.get(routes_settings, :alliance_id))
+      WandererApp.Map.Routes.unusable_bridge_pairs(
+        map_id,
+        Map.get(routes_settings, :alliance_id),
+        Map.get(routes_settings, :flying_capital, false)
+      )
 
     if MapSet.size(pairs) == 0 do
       chains

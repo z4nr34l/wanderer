@@ -99,5 +99,9 @@ defmodule WandererApp.Map.BridgesTest do
     test "bridges turned off means none of them count", %{map_id: map_id} do
       assert [] = Bridges.route_pairs(map_id, %{include_bridges: false})
     end
+
+    test "a capital counts none of them either", %{map_id: map_id} do
+      assert [] = Bridges.route_pairs(map_id, %{flying_capital: true})
+    end
   end
 end

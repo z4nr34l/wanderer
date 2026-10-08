@@ -31,6 +31,8 @@ defmodule WandererApp.Esi.ApiClient do
 
   def get_sovereignty_map, do: do_get("/sovereignty/map/", [], @cache_opts)
 
+  def get_factions, do: do_get("/universe/factions/", [], @cache_opts)
+
   def set_autopilot_waypoint(add_to_beginning, clear_other_waypoints, destination_id, opts \\ []),
     do:
       do_post_esi(

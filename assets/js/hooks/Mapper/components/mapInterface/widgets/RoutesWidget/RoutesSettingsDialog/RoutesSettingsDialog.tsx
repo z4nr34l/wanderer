@@ -24,6 +24,8 @@ const checkboxes: { label: string; propName: keyof RoutesFlagsType }[] = [
   { label: 'Avoid Triglavian systems', propName: 'avoid_triglavian' },
   { label: 'Use jump bridges (your alliance only)', propName: 'include_bridges' },
   { label: 'Avoid dangerous bridges', propName: 'avoid_dangerous_bridges' },
+  // CCP took Ansiblex away from capitals in the Cradle of War update
+  { label: 'Flying a capital (no jump bridges)', propName: 'flying_capital' },
   { label: 'Avoid bubbled connections', propName: 'avoid_bubbled_connections' },
 ];
 
