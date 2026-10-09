@@ -60,6 +60,16 @@ export const SystemInfoContent = ({ systemId }: SystemInfoContentProps) => {
         </InfoDrawer>
       )}
 
+      {isWH && (
+        <InfoDrawer title="Statics">
+          <div className="flex gap-1">
+            {sortedStatics.map(x => (
+              <WHClassView key={x} whClassName={x} />
+            ))}
+          </div>
+        </InfoDrawer>
+      )}
+
       {/* whether anybody is ratting here, which says whether the space is lived in at all */}
       {npcKills && (
         <InfoDrawer title="NPC kills">
@@ -68,16 +78,6 @@ export const SystemInfoContent = ({ systemId }: SystemInfoContentProps) => {
           <span className="text-stone-600"> &middot; </span>
           <span className="text-stone-300">{npcKills.last_day}</span>
           <span className="text-stone-500">{npcKills.hours >= 24 ? ' last 24h' : ` last ${npcKills.hours}h`}</span>
-        </InfoDrawer>
-      )}
-
-      {isWH && (
-        <InfoDrawer title="Statics">
-          <div className="flex gap-1">
-            {sortedStatics.map(x => (
-              <WHClassView key={x} whClassName={x} />
-            ))}
-          </div>
         </InfoDrawer>
       )}
 
