@@ -324,6 +324,7 @@ export enum OutCommand {
   getHomeWaysIn = 'get_home_ways_in',
   getLinkedMap = 'get_linked_map',
   getWhoFliesHere = 'get_who_flies_here',
+  getNpcKills = 'get_npc_kills',
   updateMapSystemLabels = 'update_map_system_labels',
   saveDefaultSettings = 'save_default_settings',
   getDefaultSettings = 'get_default_settings',

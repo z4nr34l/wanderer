@@ -9,7 +9,7 @@ export type FlyingGroup = {
   kills: number;
 };
 
-// who has been seen in a hole over the last two days
+// who has been seen in a hole over the last day
 export type WhoFliesHere = {
   alliances: FlyingGroup[];
   corporations: FlyingGroup[];

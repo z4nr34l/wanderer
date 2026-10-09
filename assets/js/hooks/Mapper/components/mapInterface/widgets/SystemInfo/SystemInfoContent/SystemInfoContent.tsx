@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { getSystemById, sortWHClasses } from '@/hooks/Mapper/helpers';
 import { InfoDrawer, MarkdownTextViewer, WHClassView, WHEffectView } from '@/hooks/Mapper/components/ui-kit';
 import { useWhoFliesHere } from '@/hooks/Mapper/hooks/useWhoFliesHere.ts';
+import { useNpcKills } from '@/hooks/Mapper/hooks/useNpcKills.ts';
 import { getSystemStaticInfo } from '@/hooks/Mapper/mapRootProvider/hooks/useLoadSystemStatic';
 
 interface SystemInfoContentProps {
@@ -34,6 +35,7 @@ export const SystemInfoContent = ({ systemId }: SystemInfoContentProps) => {
   // out in null sec the neighbours are whoever holds the sovereignty; in a hole there is no such
   // thing, so the killboard is the only thing that can answer who has been through lately
   const { whoFliesHere, loading: whoLoading } = useWhoFliesHere(isWH ? systemId : undefined);
+  const npcKills = useNpcKills(systemId);
 
   return (
     <div className="flex flex-col gap-1 p-2">
@@ -58,6 +60,17 @@ export const SystemInfoContent = ({ systemId }: SystemInfoContentProps) => {
         </InfoDrawer>
       )}
 
+      {/* whether anybody is ratting here, which says whether the space is lived in at all */}
+      {npcKills && (
+        <InfoDrawer title="NPC kills">
+          <span className="text-stone-300">{npcKills.last_hour}</span>
+          <span className="text-stone-500"> last hour</span>
+          <span className="text-stone-600"> &middot; </span>
+          <span className="text-stone-300">{npcKills.last_day}</span>
+          <span className="text-stone-500">{npcKills.hours >= 24 ? ' last 24h' : ` last ${npcKills.hours}h`}</span>
+        </InfoDrawer>
+      )}
+
       {isWH && (
         <InfoDrawer title="Statics">
           <div className="flex gap-1">
@@ -69,17 +82,15 @@ export const SystemInfoContent = ({ systemId }: SystemInfoContentProps) => {
       )}
 
       {/* out in null sec the neighbours are the sovereignty holder; in a hole there is no such
-          thing, so who has been shooting in it over the last couple of days is the only answer */}
+          thing, so who has been shooting in it over the last day is the only answer */}
       {isWH && (whoLoading || whoFliesHere) && (
-        <InfoDrawer title="Seen here (48h)">
+        <InfoDrawer title="Seen here (24h)">
           {whoLoading && <span className="text-stone-500">Reading the killboard...</span>}
 
           {!whoLoading &&
             whoFliesHere &&
             whoFliesHere.alliances.length === 0 &&
-            whoFliesHere.corporations.length === 0 && (
-              <span className="text-stone-500">Nothing in the last two days.</span>
-            )}
+            whoFliesHere.corporations.length === 0 && <span className="text-stone-500">Nothing in the last day.</span>}
 
           {!whoLoading && whoFliesHere && (
             <div className="flex flex-col gap-[2px]">

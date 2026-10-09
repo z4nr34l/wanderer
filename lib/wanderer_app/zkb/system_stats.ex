@@ -8,7 +8,7 @@ defmodule WandererApp.Zkb.SystemStats do
   only recently: a fight two months ago says nothing about who is in the chain today, and the
   fleets that pass through a null sec neighbour say nothing about who lives there.
 
-  So the window is short and fixed - the last two days - and the question is asked for wormholes
+  So the window is short and fixed - the last day - and the question is asked for wormholes
   alone. Nothing here is on the path of drawing a map: it is asked for one system at a time, as
   somebody looks at it, cached, and it shrugs if zKillboard is slow or unhappy.
 
@@ -19,7 +19,7 @@ defmodule WandererApp.Zkb.SystemStats do
   require Logger
 
   @base "https://zkillboard.com/api/kills/solarSystemID"
-  @window_seconds 172_800
+  @window_seconds 86_400
   @cache_ttl :timer.hours(1)
   @failure_ttl :timer.minutes(10)
   @timeout :timer.seconds(20)
@@ -29,7 +29,7 @@ defmodule WandererApp.Zkb.SystemStats do
   @type stats :: %{alliances: [group()], corporations: [group()]}
 
   @doc """
-  The alliances and corporations seen in a system over the last two days, most seen first.
+  The alliances and corporations seen in a system over the last day, most seen first.
   """
   @spec who_flies_here(integer()) :: {:ok, stats()} | {:error, atom()}
   def who_flies_here(solar_system_id) when is_integer(solar_system_id) do
