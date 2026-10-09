@@ -11,7 +11,6 @@ interface SystemInfoContentProps {
   onEditClick?(): void;
 }
 export const SystemInfoContent = ({ systemId }: SystemInfoContentProps) => {
-  const { whoFliesHere, loading: whoLoading } = useWhoFliesHere(systemId);
   const {
     data: { systems, wormholesData },
   } = useMapRootState();
@@ -19,10 +18,22 @@ export const SystemInfoContent = ({ systemId }: SystemInfoContentProps) => {
   const sys = getSystemById(systems, systemId)! || {};
   const systemStaticInfo = getSystemStaticInfo(systemId)!;
   const { description } = sys;
-  const { system_class, region_name, constellation_name, statics, effect_name, effect_power, sovereignty } =
-    systemStaticInfo || {};
+  const {
+    system_class,
+    region_name,
+    constellation_name,
+    statics,
+    effect_name,
+    effect_power,
+    sovereignty,
+    region_sovereignty,
+  } = systemStaticInfo || {};
   const isWH = isWormholeSpace(system_class);
   const sortedStatics = useMemo(() => sortWHClasses(wormholesData, statics), [wormholesData, statics]);
+
+  // out in null sec the neighbours are whoever holds the sovereignty; in a hole there is no such
+  // thing, so the killboard is the only thing that can answer who has been through lately
+  const { whoFliesHere, loading: whoLoading } = useWhoFliesHere(isWH ? systemId : undefined);
 
   return (
     <div className="flex flex-col gap-1 p-2">
@@ -36,40 +47,14 @@ export const SystemInfoContent = ({ systemId }: SystemInfoContentProps) => {
         </InfoDrawer>
       )}
 
-      {sovereignty?.faction_name && !sovereignty?.alliance_name && (
-        <InfoDrawer title="Sovereignty">
-          <span className="text-stone-400 italic">{sovereignty.faction_name}</span>
-        </InfoDrawer>
-      )}
-
-      {/* who owns the space and who is in it are different questions; this is the second */}
-      {(whoLoading || whoFliesHere) && (
-        <InfoDrawer
-          title={whoFliesHere?.window === 'all_time' ? 'Who flies here (all time)' : 'Who flies here (recently)'}
-        >
-          {whoLoading && <span className="text-stone-500">Reading the killboard...</span>}
-
-          {!whoLoading && whoFliesHere && (
-            <div className="flex flex-col gap-[2px]">
-              {whoFliesHere.alliances.map(group => (
-                <div key={`a-${group.id}`} className="flex justify-between gap-2">
-                  <span className="text-stone-300 truncate">
-                    {group.ticker ? <span className="text-purple-300">[{group.ticker}] </span> : null}
-                    {group.name}
-                  </span>
-                  <span className="text-stone-500 shrink-0">{group.kills}</span>
-                </div>
-              ))}
-
-              {whoFliesHere.alliances.length === 0 &&
-                whoFliesHere.corporations.map(group => (
-                  <div key={`c-${group.id}`} className="flex justify-between gap-2">
-                    <span className="text-stone-300 truncate">{group.name}</span>
-                    <span className="text-stone-500 shrink-0">{group.kills}</span>
-                  </div>
-                ))}
-            </div>
-          )}
+      {/* a system nobody holds still sits in somebody's part of space */}
+      {!sovereignty?.alliance_name && region_sovereignty && (
+        <InfoDrawer title="Region held by">
+          <span className="text-purple-300">{region_sovereignty.alliance_ticker}</span>{' '}
+          {region_sovereignty.alliance_name}{' '}
+          <span className="text-stone-500">
+            ({region_sovereignty.held}/{region_sovereignty.total})
+          </span>
         </InfoDrawer>
       )}
 
@@ -80,6 +65,35 @@ export const SystemInfoContent = ({ systemId }: SystemInfoContentProps) => {
               <WHClassView key={x} whClassName={x} />
             ))}
           </div>
+        </InfoDrawer>
+      )}
+
+      {/* out in null sec the neighbours are the sovereignty holder; in a hole there is no such
+          thing, so who has been shooting in it over the last couple of days is the only answer */}
+      {isWH && (whoLoading || whoFliesHere) && (
+        <InfoDrawer title="Seen here (48h)">
+          {whoLoading && <span className="text-stone-500">Reading the killboard...</span>}
+
+          {!whoLoading &&
+            whoFliesHere &&
+            whoFliesHere.alliances.length === 0 &&
+            whoFliesHere.corporations.length === 0 && (
+              <span className="text-stone-500">Nothing in the last two days.</span>
+            )}
+
+          {!whoLoading && whoFliesHere && (
+            <div className="flex flex-col gap-[2px]">
+              {(whoFliesHere.alliances.length ? whoFliesHere.alliances : whoFliesHere.corporations).map(group => (
+                <div key={group.id} className="flex justify-between gap-2">
+                  <span className="text-stone-300 truncate">
+                    {group.ticker ? <span className="text-purple-300">[{group.ticker}] </span> : null}
+                    {group.name}
+                  </span>
+                  <span className="text-stone-500 shrink-0">{group.kills}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </InfoDrawer>
       )}
 

@@ -18,11 +18,34 @@ defmodule WandererApp.Server.SovereigntyDataFetcher do
   @retry_timeout :timer.minutes(5)
   @alliance_lookup_concurrency 8
 
+  # Which alliance most of a region belongs to. A system of its own says who holds that system;
+  # this says whose part of space it sits in, which is the question somebody asks on arriving
+  # somewhere they do not know. Held apart from the per system map so that nothing asking "who
+  # holds this system" can read a region and think it has an answer.
+  @regions :sovereignty_regions
+  @regions_ttl :timer.hours(6)
+
   @doc """
   Who holds the given system, or nil for anywhere without alliance sovereignty.
   """
   @spec get_sovereignty(integer() | nil) :: map() | nil
   def get_sovereignty(nil), do: nil
+
+  @doc """
+  Whose part of space a region is: the alliance holding most of its null sec, with how much.
+
+  A region is rarely one alliance's - Delve carries seven - so the share is part of the answer
+  and a region nobody dominates has no answer at all.
+  """
+  @spec get_region_sovereignty(integer() | nil) :: map() | nil
+  def get_region_sovereignty(nil), do: nil
+
+  def get_region_sovereignty(region_id) do
+    case WandererApp.Cache.get(@regions) do
+      nil -> nil
+      regions -> Map.get(regions, region_id)
+    end
+  end
 
   def get_sovereignty(solar_system_id) do
     case WandererApp.Cache.get(@name) do
@@ -104,14 +127,11 @@ defmodule WandererApp.Server.SovereigntyDataFetcher do
     case WandererApp.Esi.get_sovereignty_map() do
       {:ok, entries} when is_list(entries) ->
         held = Enum.filter(entries, &is_integer(&1["alliance_id"]))
-        npc = Enum.filter(entries, &is_integer(&1["faction_id"]))
+        by_system = build_sovereignty(held, alliances(held))
 
-        sovereignty =
-          held
-          |> build_sovereignty(alliances(held))
-          |> Map.merge(build_npc(npc, factions()))
+        WandererApp.Cache.insert(@regions, build_regions(by_system), ttl: @regions_ttl)
 
-        {:ok, sovereignty}
+        {:ok, by_system}
 
       {:ok, other} ->
         {:error, {:unexpected_body, other}}
@@ -138,30 +158,77 @@ defmodule WandererApp.Server.SovereigntyDataFetcher do
     |> Map.new()
   end
 
-  # Most of null sec that no alliance holds is still somebody's: CCP names the faction whose
-  # space it is on the same map, which is what tells a reader who is around out there. It is not
-  # sovereignty an alliance can lose, so it is kept apart from the alliance a system is held by -
-  # nothing that asks "which alliance holds this" may read a faction and think it has an answer.
-  defp build_npc(npc, factions) do
-    npc
-    |> Enum.flat_map(fn %{"system_id" => solar_system_id, "faction_id" => faction_id} ->
-      case Map.get(factions, faction_id) do
-        nil -> []
-        name -> [{solar_system_id, %{faction_id: faction_id, faction_name: name}}]
-      end
-    end)
-    |> Map.new()
-  end
+  # Counted over the null sec of a region only: the high sec a region may also carry belongs to
+  # an empire, not to anybody who could hold sovereignty, and counting it would only dilute the
+  # share. A plurality is enough to name whose space it is - half of Delve belongs to nobody in
+  # particular - but a region with no clear largest holder is left unanswered.
+  defp build_regions(by_system) do
+    case WandererApp.Api.MapSolarSystem.read() do
+      {:ok, systems} ->
+        region_of = Map.new(systems, &{&1.solar_system_id, &1.region_id})
 
-  defp factions do
-    case WandererApp.Esi.get_factions() do
-      {:ok, factions} when is_list(factions) ->
-        Map.new(factions, &{&1["faction_id"], &1["name"]})
+        totals =
+          systems
+          |> Enum.filter(&null_sec?/1)
+          |> Enum.frequencies_by(& &1.region_id)
+
+        by_system
+        |> Enum.flat_map(fn {solar_system_id, alliance} ->
+          case Map.get(region_of, solar_system_id) do
+            nil -> []
+            region_id -> [{region_id, alliance}]
+          end
+        end)
+        |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+        |> Enum.flat_map(fn {region_id, alliances} ->
+          case dominant(alliances) do
+            nil ->
+              []
+
+            {alliance, held} ->
+              [
+                {region_id,
+                 alliance
+                 |> Map.put(:held, held)
+                 |> Map.put(:total, Map.get(totals, region_id, held))}
+              ]
+          end
+        end)
+        |> Map.new()
 
       _ ->
         %{}
     end
   end
+
+  defp dominant(alliances) do
+    alliances
+    |> Enum.frequencies_by(& &1.alliance_id)
+    |> Enum.sort_by(&elem(&1, 1), :desc)
+    |> case do
+      [{alliance_id, held} | rest] ->
+        if match?([{_, ^held} | _], rest) do
+          # two alliances tied for the largest share: neither is whose space it is
+          nil
+        else
+          {Enum.find(alliances, &(&1.alliance_id == alliance_id)), held}
+        end
+
+      [] ->
+        nil
+    end
+  end
+
+  defp null_sec?(%{solar_system_id: solar_system_id, security: security}) do
+    solar_system_id < 31_000_000 and
+      case security do
+        value when is_number(value) -> value <= 0.0
+        value when is_binary(value) -> match?({parsed, _} when parsed <= 0.0, Float.parse(value))
+        _ -> false
+      end
+  end
+
+  defp null_sec?(_system), do: false
 
   # One lookup per alliance rather than per system - a few dozen holders cover all of null sec,
   # and an alliance that will not resolve simply drops out rather than holding up the rest.

@@ -446,36 +446,35 @@ defmodule WandererAppWeb.MapEventHandler do
         :triglavian_invasion_status,
         :sun_type_id
       ])
-      # who holds the system, for null sec - refreshed on a timer, so it rides along with the
-      # static info rather than needing its own round trip
+      # who holds the system, and whose part of space it sits in - both refreshed on a timer, so
+      # they ride along with the static info rather than needing a round trip of their own
       |> Map.put(
         :sovereignty,
-        sovereignty_of(system_static_info)
+        WandererApp.Server.SovereigntyDataFetcher.get_sovereignty(
+          Map.get(system_static_info, :solar_system_id)
+        )
       )
+      |> Map.put(:region_sovereignty, region_sovereignty_of(system_static_info))
 
-  # CCP names a faction for empire space too - Jita comes back as CONCORD - and a chip saying so
-  # on every high sec system is noise. The question a faction answers is who is around out in the
-  # null sec nobody claims, so that is the only place it is passed on.
-  defp sovereignty_of(system_static_info) do
-    case WandererApp.Server.SovereigntyDataFetcher.get_sovereignty(
-           Map.get(system_static_info, :solar_system_id)
-         ) do
-      %{alliance_id: _} = held ->
-        held
-
-      %{faction_id: _} = faction ->
-        if null_sec?(system_static_info), do: faction, else: nil
-
-      _ ->
-        nil
+  # Whose region this is answers the question an unheld null sec system cannot: a pocket nobody
+  # holds still sits in somebody's space. Asked for null sec alone - a region's high sec belongs
+  # to an empire, and saying an alliance owns the area around Jita would be nonsense.
+  defp region_sovereignty_of(system_static_info) do
+    if null_sec?(system_static_info) do
+      WandererApp.Server.SovereigntyDataFetcher.get_region_sovereignty(
+        Map.get(system_static_info, :region_id)
+      )
     end
   end
 
   defp null_sec?(system_static_info) do
-    case to_security(Map.get(system_static_info, :security)) do
-      security when is_number(security) -> security <= 0.0
-      _ -> false
-    end
+    solar_system_id = Map.get(system_static_info, :solar_system_id)
+
+    is_integer(solar_system_id) and solar_system_id < 31_000_000 and
+      case to_security(Map.get(system_static_info, :security)) do
+        security when is_number(security) -> security <= 0.0
+        _ -> false
+      end
   end
 
   defp to_security(security) when is_number(security), do: security

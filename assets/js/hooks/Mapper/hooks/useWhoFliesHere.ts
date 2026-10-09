@@ -9,19 +9,18 @@ export type FlyingGroup = {
   kills: number;
 };
 
+// who has been seen in a hole over the last two days
 export type WhoFliesHere = {
-  // which question was answered: what is happening now, or who has ever flown here
-  window: 'recent' | 'all_time';
   alliances: FlyingGroup[];
   corporations: FlyingGroup[];
 };
 
 /**
- * Who a pilot will meet in a system, read from the kills in it.
+ * Who has been seen in a wormhole lately, read from the kills in it.
  *
- * Sovereignty says who owns null sec and the faction on the map says which rats live there;
- * neither says who is actually around. Asked one system at a time, as the person looks at it,
- * because that is the only moment the answer is wanted.
+ * Null sec has sovereignty and a region whose space it is; a hole has neither, and the killboard
+ * is the only thing that can say who has been through. Asked one system at a time, as somebody
+ * looks at it, because that is the only moment the answer is wanted.
  */
 export const useWhoFliesHere = (solarSystemId: string | undefined) => {
   const { outCommand } = useMapRootState();

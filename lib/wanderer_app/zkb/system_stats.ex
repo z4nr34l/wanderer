@@ -1,52 +1,44 @@
 defmodule WandererApp.Zkb.SystemStats do
   @moduledoc """
-  Who flies in a system, read from zKillboard.
+  Who has been seen in a system lately, read from the kills in it.
 
-  Sovereignty answers who owns null sec, and the faction on the sovereignty map answers which
-  rats live there, but neither answers the question somebody asks on rolling out of a chain:
-  whose space is this, who will I meet. Kills answer it, because the people who fly somewhere are
-  the people who die there and the people who do the killing.
+  Out in null sec the neighbours are whoever holds the sovereignty, and the region says whose
+  part of space a system sits in even where nobody holds it outright. A wormhole has neither.
+  The only thing that can answer who is around in a hole is who has been shooting in it, and
+  only recently: a fight two months ago says nothing about who is in the chain today, and the
+  fleets that pass through a null sec neighbour say nothing about who lives there.
 
-  zKillboard keeps two lists per system and they say different things. The recent one is what is
-  happening now and is often empty - a quiet pocket of null sec can go a week without a loss. The
-  all-time one is rich but can be years stale. Both are reported, and which one this is is part
-  of the answer rather than a footnote, so nobody reads a long-dead renter alliance as the
+  So the window is short and fixed - the last two days - and the question is asked for wormholes
+  alone. Nothing here is on the path of drawing a map: it is asked for one system at a time, as
+  somebody looks at it, cached, and it shrugs if zKillboard is slow or unhappy.
+
+  NPC corporations are dropped. The rats are a different question, and nobody calls them the
   neighbours.
-
-  Nothing here is on the path of drawing a map: it is asked for a system at a time, cached, and
-  the whole thing shrugs and returns nothing if zKillboard is slow or unhappy.
   """
 
   require Logger
 
-  @base "https://zkillboard.com/api/stats/solarSystemID"
-  @cache_ttl :timer.hours(6)
+  @base "https://zkillboard.com/api/kills/solarSystemID"
+  @window_seconds 172_800
+  @cache_ttl :timer.hours(1)
   @failure_ttl :timer.minutes(10)
   @timeout :timer.seconds(20)
   @top 5
 
   @type group :: %{id: integer(), name: String.t(), ticker: String.t() | nil, kills: integer()}
-  @type stats :: %{window: :recent | :all_time, alliances: [group()], corporations: [group()]}
+  @type stats :: %{alliances: [group()], corporations: [group()]}
 
   @doc """
-  The alliances and corporations that fly in a system, most kills first.
-
-  `window` says which question was answered: `:recent` for what is happening now, `:all_time`
-  where there has been nothing recent to go on.
+  The alliances and corporations seen in a system over the last two days, most seen first.
   """
   @spec who_flies_here(integer()) :: {:ok, stats()} | {:error, atom()}
   def who_flies_here(solar_system_id) when is_integer(solar_system_id) do
-    key = "zkb:stats:#{solar_system_id}"
+    key = "zkb:seen:#{solar_system_id}"
 
     case WandererApp.Cache.lookup(key) do
-      {:ok, %{} = cached} ->
-        {:ok, cached}
-
-      {:ok, :unavailable} ->
-        {:error, :unavailable}
-
-      _ ->
-        fetch_and_cache(solar_system_id, key)
+      {:ok, %{} = cached} -> {:ok, cached}
+      {:ok, :unavailable} -> {:error, :unavailable}
+      _ -> fetch_and_cache(solar_system_id, key)
     end
   end
 
@@ -59,23 +51,23 @@ defmodule WandererApp.Zkb.SystemStats do
         {:ok, stats}
 
       {:error, reason} ->
-        # a system nobody has ever died in is a real answer, and so is zKillboard being unhappy;
-        # either way it is not worth asking again straight away
+        # a quiet hole is a real answer and so is zKillboard being unhappy; either way it is not
+        # worth asking again straight away
         WandererApp.Cache.insert(key, :unavailable, ttl: @failure_ttl)
         {:error, reason}
     end
   end
 
   defp fetch(solar_system_id) do
-    url = "#{@base}/#{solar_system_id}/"
+    url = "#{@base}/#{solar_system_id}/pastSeconds/#{@window_seconds}/"
 
     case Req.get(url,
            headers: [{"user-agent", user_agent()}, {"accept", "application/json"}],
            retry: false,
            receive_timeout: @timeout
          ) do
-      {:ok, %{status: 200, body: body}} when is_map(body) ->
-        read(body)
+      {:ok, %{status: 200, body: killmails}} when is_list(killmails) ->
+        {:ok, tally(killmails)}
 
       {:ok, %{status: 429}} ->
         Logger.warning(fn -> "[Zkb] asked too often for #{solar_system_id}" end)
@@ -92,40 +84,20 @@ defmodule WandererApp.Zkb.SystemStats do
   end
 
   @doc false
-  def read(body) do
-    recent = %{
-      alliances: from_top_lists(body, "alliance", :alliance),
-      corporations: from_top_lists(body, "corporation", :corporation)
+  def tally(killmails) do
+    %{
+      alliances: count(killmails, "alliance_id", :alliance),
+      corporations: count(killmails, "corporation_id", :corporation)
     }
-
-    if recent.alliances == [] and recent.corporations == [] do
-      all_time = %{
-        alliances: from_all_time(body, "alliance", "allianceID", :alliance),
-        corporations: from_all_time(body, "corporation", "corporationID", :corporation)
-      }
-
-      if all_time.alliances == [] and all_time.corporations == [] do
-        {:error, :nothing_known}
-      else
-        {:ok, Map.put(all_time, :window, :all_time)}
-      end
-    else
-      {:ok, Map.put(recent, :window, :recent)}
-    end
   end
 
-  # the recent lists carry the names themselves, so they cost nothing beyond the one call
-  defp from_top_lists(body, type, kind) do
-    body
-    |> Map.get("topLists", [])
-    |> Enum.find(%{}, &(Map.get(&1, "type") == type))
-    |> Map.get("values", [])
-    |> Enum.reject(&npc?(Map.get(&1, "id"), kind))
-    |> Enum.take(@top)
-    |> Enum.flat_map(fn entry ->
-      case {Map.get(entry, "id"), Map.get(entry, "name")} do
-        {id, name} when is_integer(id) and is_binary(name) ->
-          [%{id: id, name: name, ticker: nil, kills: Map.get(entry, "kills", 0)}]
+  defp count(killmails, key, kind) do
+    killmails
+    |> counts(key, kind)
+    |> Enum.flat_map(fn {id, kills} ->
+      case describe(kind, id) do
+        {:ok, %{name: name, ticker: ticker}} ->
+          [%{id: id, name: name, ticker: ticker, kills: kills}]
 
         _ ->
           []
@@ -133,22 +105,33 @@ defmodule WandererApp.Zkb.SystemStats do
     end)
   end
 
-  # the all-time lists carry ids alone, so the names are looked up - only the handful shown
-  defp from_all_time(body, type, id_key, kind) do
-    body
-    |> Map.get("topAllTime", [])
-    |> Enum.find(%{}, &(Map.get(&1, "type") == type))
-    |> Map.get("data", [])
-    |> Enum.reject(&npc?(Map.get(&1, id_key), kind))
+  @doc """
+  How many of the kills each group was in, most first, before anybody's name is looked up.
+
+  One kill counts once for anybody who was in it, however many ships they brought: a fleet of
+  thirty is one group being there, not thirty.
+  """
+  @spec counts([map()], String.t(), :alliance | :corporation) :: [{integer(), integer()}]
+  def counts(killmails, key, kind) do
+    killmails
+    |> Enum.flat_map(&involved(&1, key))
+    |> Enum.reject(&npc?(&1, kind))
+    |> Enum.frequencies()
+    |> Enum.sort_by(fn {id, kills} -> {-kills, id} end)
     |> Enum.take(@top)
-    |> Enum.flat_map(fn entry ->
-      with id when is_integer(id) <- Map.get(entry, id_key),
-           {:ok, %{name: name, ticker: ticker}} <- describe(kind, id) do
-        [%{id: id, name: name, ticker: ticker, kills: Map.get(entry, "kills", 0)}]
-      else
-        _ -> []
-      end
-    end)
+  end
+
+  defp involved(killmail, key) do
+    victim = killmail |> Map.get("victim", %{}) |> Map.get(key)
+
+    attackers =
+      killmail
+      |> Map.get("attackers", [])
+      |> Enum.map(&Map.get(&1, key))
+
+    [victim | attackers]
+    |> Enum.filter(&is_integer/1)
+    |> Enum.uniq()
   end
 
   # The rats are the other question. EVE keeps its NPC corporations below two million and its
