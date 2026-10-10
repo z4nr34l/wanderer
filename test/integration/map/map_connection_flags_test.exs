@@ -80,7 +80,9 @@ defmodule WandererApp.Map.MapConnectionFlagsTest do
     |> case do
       {:ok, connections} ->
         connections
-        |> Enum.find(&(&1.solar_system_source == @system_a and &1.solar_system_target == @system_b))
+        |> Enum.find(
+          &(&1.solar_system_source == @system_a and &1.solar_system_target == @system_b)
+        )
         |> case do
           nil -> {:error, :not_found}
           connection -> {:ok, connection}
