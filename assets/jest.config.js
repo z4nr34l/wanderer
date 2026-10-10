@@ -5,7 +5,7 @@ module.exports = {
   moduleDirectories: ['node_modules', 'js'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/js/$1',
-    '\.scss$': 'identity-obj-proxy', // Mock SCSS files
+    '\.scss$': '<rootDir>/test/styleMock.js', // CSS modules resolve to their own class names
   },
   transform: {
     '^.+\.(ts|tsx)$': 'ts-jest',
