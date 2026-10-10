@@ -17,6 +17,7 @@ import { useMapRootState } from '@/hooks/Mapper/mapRootProvider';
 import { WithChildren } from '@/hooks/Mapper/types/common.ts';
 import { FormatTemplateInput } from '@/hooks/Mapper/components/mapRootContent/components/MapSettings/components/FormatTemplateInput.tsx';
 import { SystemLabelDefinition } from '@/hooks/Mapper/constants/labels.ts';
+import { themeBubbleColor } from '@/hooks/Mapper/constants/connectionBubble.ts';
 
 export type SettingValue = boolean | number | string | null | Record<string, string> | SystemLabelDefinition[];
 
@@ -87,7 +88,7 @@ export const MapSettingsProvider = ({ children }: WithChildren) => {
         ...userRemoteSettings,
         system_labels: response.system_labels,
       });
-    } else if (UserSettingsRemoteList.includes(prop as any)) {
+    } else if ((UserSettingsRemoteList as string[]).includes(prop)) {
       const newRemoteSettings = {
         ...userRemoteSettings,
         [prop]: value,
@@ -182,7 +183,7 @@ export const MapSettingsProvider = ({ children }: WithChildren) => {
             <div className="flex items-center gap-2">
               <ColorPicker
                 format="hex"
-                value={value || item.fallback}
+                value={value || (item.themeVar && themeBubbleColor(item.themeVar)) || item.fallback}
                 onChange={e => handleSettingChange(item.prop, e.value ? `#${String(e.value).replace('#', '')}` : null)}
               />
               <WdImgButton

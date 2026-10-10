@@ -44,6 +44,18 @@ export const CONNECTION_BUBBLE_KEYS = [
 export const isBubbleSettingSet = (value: unknown): value is string | number =>
   (typeof value === 'string' && value !== '') || (typeof value === 'number' && value > 0);
 
+/**
+ * The value the current theme gives a bubble variable, read from the theme's own element so a
+ * setting the user saved on the map root does not hide it. Only a plain hex colour is returned,
+ * since that is all the colour picker can show.
+ */
+export const themeBubbleColor = (cssVar: string) => {
+  const themeEl = document.querySelector('[class$="-theme"]') ?? document.documentElement;
+  const value = getComputedStyle(themeEl).getPropertyValue(cssVar).trim();
+
+  return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value) ? value : undefined;
+};
+
 const hexToRgb = (hex: string) => {
   const value = hex.replace('#', '');
 

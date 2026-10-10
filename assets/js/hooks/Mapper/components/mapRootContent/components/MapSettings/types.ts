@@ -41,4 +41,6 @@ export type SettingsListItem = {
   suffix?: string;
   // 'color' and 'number': what the theme uses when the setting is left empty
   fallback?: string;
+  // 'color' only: the CSS variable the current theme sets, shown while the setting is empty
+  themeVar?: string;
 };

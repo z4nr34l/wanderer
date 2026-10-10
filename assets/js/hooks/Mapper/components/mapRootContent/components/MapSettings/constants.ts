@@ -8,6 +8,7 @@ import {
 import { SettingsListItem, UserSettingsRemoteProps } from './types.ts';
 import {
   BUBBLE_BORDER_RANGE,
+  BUBBLE_CSS_VARS,
   BUBBLE_DEFAULT_COLOR,
   BUBBLE_OPACITY_RANGE,
   BUBBLE_SIZE_RANGE,
@@ -138,6 +139,7 @@ export const CONNECTION_BUBBLE_SETTINGS_PROPS: SettingsListItem[] = [
     label: 'Bubble colour',
     type: 'color',
     fallback: BUBBLE_DEFAULT_COLOR,
+    themeVar: BUBBLE_CSS_VARS.color,
   },
   {
     prop: UserSettingsRemoteProps.connection_bubble_size,
