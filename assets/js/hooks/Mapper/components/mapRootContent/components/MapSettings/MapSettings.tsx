@@ -1,3 +1,5 @@
+import { WdButton } from '@/hooks/Mapper/components/ui-kit';
+import { CONNECTION_BUBBLE_KEYS } from '@/hooks/Mapper/constants/connectionBubble.ts';
 import styles from './MapSettings.module.scss';
 import { Dialog } from 'primereact/dialog';
 import { useCallback, useRef, useState } from 'react';
@@ -34,7 +36,13 @@ export const MapSettingsComp = ({ visible, onHide }: MapSettingsProps) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const { outCommand } = useMapRootState();
 
-  const { renderSettingItem, setUserRemoteSettings } = useMapSettings();
+  const { renderSettingItem, setUserRemoteSettings, updateRemoteSettings } = useMapSettings();
+
+  // all four in one save: separate saves race each other on the settings they started from
+  const resetBubbleToTheme = useCallback(
+    () => updateRemoteSettings(Object.fromEntries(CONNECTION_BUBBLE_KEYS.map(key => [key, null]))),
+    [updateRemoteSettings],
+  );
   const isAdmin = useMapCheckPermissions([UserPermission.ADMIN_MAP]);
 
   const refVars = useRef({ outCommand, onHide, visible });
@@ -103,7 +111,17 @@ export const MapSettingsComp = ({ visible, onHide }: MapSettingsProps) => {
               <div className="flex flex-col gap-1">
                 {renderSettingsList(CONNECTIONS_CHECKBOXES_PROPS)}
 
-                <div className="text-[var(--gray-200)] text-[13px] font-semibold mt-3">Bubbled ends</div>
+                <div className="flex items-center justify-between mt-3">
+                  <div className="text-[var(--gray-200)] text-[13px] font-semibold">Bubbled ends</div>
+                  <WdButton
+                    size="small"
+                    outlined
+                    className="text-xs py-1 px-2 h-auto min-h-[24px]"
+                    onClick={resetBubbleToTheme}
+                  >
+                    Reset to theme
+                  </WdButton>
+                </div>
                 <div className="text-gray-400 text-xs mb-1">
                   Leave a field empty to keep whatever the current theme uses.
                 </div>

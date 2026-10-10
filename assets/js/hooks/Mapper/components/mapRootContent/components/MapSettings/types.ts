@@ -17,10 +17,11 @@ export type UserSettingsRemote = {
   system_labels: SystemLabelDefinition[];
   bookmark_return_hole_ignore: boolean;
   bookmark_return_hole_symbol: string;
-  connection_bubble_color: string;
-  connection_bubble_size: number;
-  connection_bubble_border: number;
-  connection_bubble_opacity: number;
+  // null, empty or zero: follow the theme
+  connection_bubble_color: string | null;
+  connection_bubble_size: number | null;
+  connection_bubble_border: number | null;
+  connection_bubble_opacity: number | null;
 };
 
 export type UserSettings = UserSettingsRemote & InterfaceStoredSettings;
