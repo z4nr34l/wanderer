@@ -31,6 +31,13 @@ defmodule WandererApp.Server.SovereigntyDataFetcher do
   @spec get_sovereignty(integer() | nil) :: map() | nil
   def get_sovereignty(nil), do: nil
 
+  def get_sovereignty(solar_system_id) do
+    case WandererApp.Cache.get(@name) do
+      nil -> nil
+      sovereignty -> Map.get(sovereignty, solar_system_id)
+    end
+  end
+
   @doc """
   Whose part of space a region is: the alliance holding most of its null sec, with how much.
 
@@ -44,13 +51,6 @@ defmodule WandererApp.Server.SovereigntyDataFetcher do
     case WandererApp.Cache.get(@regions) do
       nil -> nil
       regions -> Map.get(regions, region_id)
-    end
-  end
-
-  def get_sovereignty(solar_system_id) do
-    case WandererApp.Cache.get(@name) do
-      nil -> nil
-      sovereignty -> Map.get(sovereignty, solar_system_id)
     end
   end
 
