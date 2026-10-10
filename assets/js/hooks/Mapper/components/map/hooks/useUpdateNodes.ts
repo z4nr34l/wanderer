@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { Node, useOnViewportChange, useReactFlow } from 'reactflow';
 
 const useThrottle = () => {
-  const throttleSeed = useRef<number | null>(null);
+  const throttleSeed = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const throttleFunction = useRef((func: any, delay = 200) => {

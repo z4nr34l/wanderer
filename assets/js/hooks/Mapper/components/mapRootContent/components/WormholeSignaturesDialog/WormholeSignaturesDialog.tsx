@@ -80,7 +80,7 @@ export const WormholeSignaturesDialog = ({ visible, onHide }: WormholeSignatures
     if (!q) return wormholes;
 
     return wormholes.filter(w => {
-      const destInfo = WORMHOLES_ADDITIONAL_INFO[w.dest];
+      const destInfo = WORMHOLES_ADDITIONAL_INFO[String(w.dest)];
       const spawnsLabels = w.src
         .map(s => {
           const group = s.split('-')[0];

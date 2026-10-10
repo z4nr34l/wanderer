@@ -17,7 +17,7 @@ export const useCommandsConnections = () => {
   }, []);
 
   const updateConnection = useCallback((value: CommandUpdateConnection) => {
-    ref.current.rf.deleteElements({ edges: [value] });
+    ref.current.rf.deleteElements({ edges: [{ id: value.id }] });
     ref.current.rf.addEdges([convertConnection2Edge(value)]);
   }, []);
 

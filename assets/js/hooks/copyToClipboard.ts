@@ -1,14 +1,15 @@
-export default {
+import { defineHook } from './liveView';
+
+export default defineHook({
   mounted() {
     const button = this.el;
 
     button.addEventListener('click', function () {
-
       button.classList.remove('copied');
 
       // Copy the URL to the clipboard
       navigator.clipboard
-        .writeText(button.dataset.url)
+        .writeText(button.dataset.url ?? '')
         .then(() => {
           button.classList.add('copied');
         })
@@ -17,4 +18,4 @@ export default {
         });
     });
   },
-};
+});

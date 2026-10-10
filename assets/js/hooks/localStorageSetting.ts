@@ -1,6 +1,8 @@
-export default {
+import { defineHook } from './liveView';
+
+export default defineHook({
   key(): string {
-    return this.el.dataset.key;
+    return this.el.dataset.key ?? '';
   },
 
   getItem(key: string) {
@@ -16,4 +18,4 @@ export default {
     this.pushEvent(`ls_restore_${key}`, { value: this.getItem(key) });
     this.handleEvent(`ls_update_${key}`, ({ value }) => this.setItem(key, value));
   },
-};
+});

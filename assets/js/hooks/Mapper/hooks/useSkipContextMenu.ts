@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 export const useSkipContextMenu = () => {
   useEffect(() => {
-    function handleContextMenu(e) {
+    function handleContextMenu(e: Event) {
       e.preventDefault();
     }
 

@@ -1,10 +1,11 @@
 import { Droppable } from '@shopify/draggable';
+import { defineHook } from './liveView';
 
-export default {
+export default defineHook({
   mounted() {
-    let lastDropzone = null;
+    let lastDropzone: string | null = null;
     const hook = this;
-    const containers = document.querySelectorAll('.dropzone');
+    const containers = document.querySelectorAll<HTMLElement>('.dropzone');
     const selector = '#' + this.el.id;
 
     const droppable = new Droppable(containers, {
@@ -16,7 +17,7 @@ export default {
       },
     });
 
-    let droppableOrigin;
+    let droppableOrigin: HTMLElement;
 
     // --- Draggable events --- //
     droppable.on('drag:start', evt => {
@@ -25,17 +26,17 @@ export default {
     });
 
     droppable.on('droppable:dropped', evt => {
-      if (droppableOrigin.parentNode.dataset.dropzone !== evt.dropzone.dataset.dropzone) {
-        lastDropzone = evt.dropzone.dataset.dropzone;
+      if ((droppableOrigin.parentNode as HTMLElement).dataset.dropzone !== evt.dropzone.dataset.dropzone) {
+        lastDropzone = evt.dropzone.dataset.dropzone ?? null;
         evt.cancel();
       }
     });
 
-    droppable.on('droppable:stop', evt => {
+    droppable.on('droppable:stop', () => {
       if (!lastDropzone) {
         return;
       }
       hook.pushEventTo(selector, 'dropped', { draggedId: droppableOrigin.id, dropzoneId: lastDropzone });
     });
   },
-};
+});

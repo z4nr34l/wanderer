@@ -50,7 +50,7 @@ export const SystemStructuresOwnersDialog: React.FC<StructuresOwnersEditDialogPr
 
       try {
         // TODO fix it
-        const { results = [] } = await outCommand({
+        const { results = [] } = await outCommand<{ results?: { label: string; value: string }[] }>({
           type: OutCommand.getCorporationNames,
           data: { search: newQuery },
         });
@@ -92,7 +92,7 @@ export const SystemStructuresOwnersDialog: React.FC<StructuresOwnersEditDialogPr
     const tickerResults = await Promise.all(
       uniqueOwnerIds.map(async ownerId => {
         try {
-          const { ticker } = await outCommand({
+          const { ticker } = await outCommand<{ ticker?: string | null }>({
             type: OutCommand.getCorporationTicker,
             data: { corp_id: ownerId },
           });

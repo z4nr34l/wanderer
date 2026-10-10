@@ -1,11 +1,12 @@
-import { createRoot } from 'react-dom/client';
-import Mapper from './MapRoot';
+import { createRoot, Root } from 'react-dom/client';
+import { defineHook } from '../liveView';
+import Mapper, { MapRootHooks } from './MapRoot';
 
 const LAST_VERSION_KEY = 'wandererLastVersion';
 const UI_LOADED_EVENT = 'ui_loaded';
 
-export default {
-  _rootEl: null,
+export default defineHook({
+  _rootEl: null as Root | null,
   _errorCount: 0,
 
   mounted() {
@@ -28,8 +29,8 @@ export default {
     this.pushEvent(UI_LOADED_EVENT, { version: activeVersion });
   },
 
-  handleEventWrapper(event: string, handler: (payload: any) => void) {
-    this.handleEvent(event, (body: any) => {
+  handleEventWrapper(event: string, handler: (payload: unknown) => void) {
+    this.handleEvent(event, (body: unknown) => {
       handler(body);
     });
   },
@@ -39,19 +40,19 @@ export default {
     this.pushEvent(UI_LOADED_EVENT, { version: activeVersion });
   },
 
-  async pushEventAsync(event: string, payload: any) {
-    return new Promise((accept, reject) => {
+  async pushEventAsync(event: string, payload: object) {
+    return new Promise(accept => {
       this.pushEvent(event, payload, reply => {
         accept(reply);
       });
     });
   },
 
-  render(hooks) {
-    this._rootEl.render(<Mapper hooks={hooks} />);
+  render(hooks: MapRootHooks) {
+    this._rootEl!.render(<Mapper hooks={hooks} />);
   },
 
   destroyed() {
-    this._rootEl.unmount();
+    this._rootEl!.unmount();
   },
-};
+});

@@ -1,6 +1,6 @@
 import type { JumpPlannerSettings } from '@/hooks/Mapper/mapRootProvider/types.ts';
 
-const normalizeDotlanPathSegment = (value: string) => encodeURIComponent(value.replaceAll(' ', '_'));
+const normalizeDotlanPathSegment = (value: string) => encodeURIComponent(value.replace(/ /g, '_'));
 
 export const getJumpPlannerUrl = (settings: JumpPlannerSettings, from: string, destination: string) => {
   const { shipType, jumpDriveCalibration, jumpFuelConservation, jumpFreighter } = settings;

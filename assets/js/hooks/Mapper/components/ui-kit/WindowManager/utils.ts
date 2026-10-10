@@ -1,4 +1,4 @@
-import { WindowProps } from '@/hooks/Mapper/components/ui-kit/WindowManager/WindowManager.tsx';
+import { WindowProps } from '@/hooks/Mapper/components/ui-kit/WindowManager/types.ts';
 
 export function getWindowsBySides(windows: WindowProps[], containerWidth: number, containerHeight: number) {
   const centerX = containerWidth / 2;

@@ -1,5 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
-import { CharacterCache, OutCommand, OutCommandHandler, UseCharactersCacheData } from '@/hooks/Mapper/types';
+import {
+  CharacterCache,
+  EveCharacterType,
+  OutCommand,
+  OutCommandHandler,
+  UseCharactersCacheData,
+} from '@/hooks/Mapper/types';
 
 interface UseCharactersCacheProps {
   outCommand: OutCommandHandler;
@@ -27,7 +33,7 @@ export const useCharactersCache = ({ outCommand }: UseCharactersCacheProps): Use
     charactersRef.current.set(characterId, character);
 
     try {
-      const res = await outCommand({
+      const res = await outCommand<EveCharacterType | null>({
         type: OutCommand.getCharacterInfo,
         data: { characterEveId: characterId },
       });

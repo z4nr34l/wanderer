@@ -1,4 +1,6 @@
-export default {
+import { defineHook } from './liveView';
+
+export default defineHook({
   content: '',
 
   mounted() {
@@ -28,4 +30,4 @@ export default {
       document.body.removeChild(link);
     });
   },
-};
+});

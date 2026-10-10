@@ -1,9 +1,11 @@
+import { defineHook } from './liveView';
+
 const countdown = (secondsCount: number) => {
   let minutes, seconds;
 
   const dateEnd = new Date().getTime() + secondsCount * 1000;
 
-  const timer = setInterval(calculate, 1000);
+  setInterval(calculate, 1000);
 
   function calculate() {
     const dateStartDefault = new Date();
@@ -15,16 +17,16 @@ const countdown = (secondsCount: number) => {
       dateStartDefault.getUTCMinutes(),
       dateStartDefault.getUTCSeconds(),
     );
-    let timeRemaining = parseInt((dateEnd - dateStart.getTime()) / 1000);
+    let timeRemaining = Math.trunc((dateEnd - dateStart.getTime()) / 1000);
 
     if (timeRemaining >= 0) {
       timeRemaining = timeRemaining % 86400;
       timeRemaining = timeRemaining % 3600;
-      minutes = parseInt(timeRemaining / 60);
+      minutes = Math.trunc(timeRemaining / 60);
       timeRemaining = timeRemaining % 60;
-      seconds = parseInt(timeRemaining);
+      seconds = Math.trunc(timeRemaining);
 
-      document.getElementById('version-update-seconds').innerHTML = minutes * 60 + seconds;
+      document.getElementById('version-update-seconds')!.innerHTML = String(minutes * 60 + seconds);
     } else {
       return;
     }
@@ -39,13 +41,13 @@ const updateVerion = (newVersion: string) => {
   window.location.reload();
 };
 
-export default {
+export default defineHook({
   mounted() {
     const hook = this;
 
     const refreshZone = hook.el.querySelector('#refresh-area');
 
-    const handleUpdate = function (e: Event) {
+    const handleUpdate = function () {
       const hexBricks = hook.el.querySelectorAll('.hex-brick');
 
       // Add a new class to each element
@@ -53,10 +55,10 @@ export default {
         el.classList.add('hex-brick--active');
       });
 
-      updateVerion(hook.el.dataset.version);
+      updateVerion(hook.el.dataset.version ?? '');
     };
 
-    refreshZone.addEventListener('click', handleUpdate);
+    refreshZone!.addEventListener('click', handleUpdate);
     // refreshZone.addEventListener('mouseover', handleUpdate);
 
     this.updated();
@@ -79,10 +81,10 @@ export default {
       const autoRefreshTimeout = Math.floor(Math.random() * (150 - 75 + 1)) + 75;
       countdown(autoRefreshTimeout);
       setTimeout(() => {
-        updateVerion(hook.el.dataset.version);
+        updateVerion(hook.el.dataset.version ?? '');
       }, autoRefreshTimeout * 1000);
     } else {
-      updateVerion(hook.el.dataset.version);
+      updateVerion(hook.el.dataset.version ?? '');
     }
   },
 
@@ -93,4 +95,4 @@ export default {
   setItem(key: string, value: string) {
     return localStorage.setItem(key, value);
   },
-};
+});

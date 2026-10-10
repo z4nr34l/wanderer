@@ -5,6 +5,7 @@ import { MapHandlers } from '@/hooks/Mapper/types/mapHandlers.ts';
 import { ErrorInfo, useCallback, useEffect, useRef } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 import { useMapperHandlers } from './useMapperHandlers';
+import type { ViewHook } from '@/hooks/liveView';
 
 import { MapRootContent } from '@/hooks/Mapper/components/mapRootContent/MapRootContent.tsx';
 import { MapRootProvider } from '@/hooks/Mapper/mapRootProvider';
@@ -15,7 +16,14 @@ const ErrorFallback = () => {
   return <div className="!z-100 absolute w-screen h-screen bg-transparent"></div>;
 };
 
-export default function MapRoot({ hooks }) {
+export interface MapRootHooks {
+  handleEvent: (event: string, handler: (payload: unknown) => void) => void;
+  pushEvent: ViewHook['pushEvent'];
+  pushEventAsync: (event: string, payload: object) => Promise<unknown>;
+  onError: (error: Error, componentStack: string) => void;
+}
+
+export default function MapRoot({ hooks }: { hooks: MapRootHooks }) {
   const providerRef = useRef<MapHandlers>(null);
   const hooksRef = useRef<any>(hooks);
 

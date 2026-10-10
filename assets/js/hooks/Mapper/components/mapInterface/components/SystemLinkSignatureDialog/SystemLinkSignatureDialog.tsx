@@ -2,13 +2,9 @@ import { Dialog } from 'primereact/dialog';
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useSystemInfo } from '@/hooks/Mapper/components/hooks';
-import {
-  SOLAR_SYSTEM_CLASS_IDS,
-  SOLAR_SYSTEM_CLASSES_TO_CLASS_GROUPS,
-  WORMHOLES_ADDITIONAL_INFO_BY_SHORT_NAME,
-} from '@/hooks/Mapper/components/map/constants.ts';
+import { WORMHOLES_ADDITIONAL_INFO_BY_SHORT_NAME } from '@/hooks/Mapper/components/map/constants.ts';
 import { SystemSignaturesContent } from '@/hooks/Mapper/components/mapInterface/widgets/SystemSignatures/SystemSignaturesContent';
-import { MULTI_DEST_WHS, ALL_DEST_TYPES_MAP, DEST_TYPES_MAP_MAP } from '@/hooks/Mapper/constants.ts';
+import { MULTI_DEST_WHS, DEST_TYPES_MAP_MAP } from '@/hooks/Mapper/constants.ts';
 import { SETTINGS_KEYS, SignatureSettingsType } from '@/hooks/Mapper/constants/signatures';
 import { getSystemClassGroup } from '@/hooks/Mapper/components/map/helpers/getSystemClassGroup.ts';
 import { parseSignatureCustomInfo } from '@/hooks/Mapper/helpers/parseSignatureCustomInfo';

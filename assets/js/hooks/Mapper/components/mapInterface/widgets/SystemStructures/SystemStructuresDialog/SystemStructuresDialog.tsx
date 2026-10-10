@@ -57,7 +57,7 @@ export const SystemStructuresDialog: React.FC<StructuresEditDialogProps> = ({
       }
 
       try {
-        const { results = [] } = await outCommand({
+        const { results = [] } = await outCommand<{ results?: { label: string; value: string }[] }>({
           type: OutCommand.getCorporationNames,
           data: { search: query },
         });
@@ -116,7 +116,7 @@ export const SystemStructuresDialog: React.FC<StructuresEditDialogProps> = ({
     // fetch corporation ticker if we have an ownerId
     if (editData.ownerId) {
       try {
-        const { ticker } = await outCommand({
+        const { ticker } = await outCommand<{ ticker?: string | null }>({
           type: OutCommand.getCorporationTicker,
           data: { corp_id: editData.ownerId },
         });

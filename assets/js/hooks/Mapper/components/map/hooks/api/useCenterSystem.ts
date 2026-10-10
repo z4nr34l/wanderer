@@ -12,7 +12,7 @@ export const useCenterSystem = () => {
   const ref = useRef({ rf, update });
   ref.current = { rf, update };
 
-  const highlightTimeout = useRef<number>();
+  const highlightTimeout = useRef<ReturnType<typeof setTimeout>>();
 
   return useCallback((systemId: CommandCenterSystem) => {
     const systemNode = ref.current.rf.getNodes().find(x => x.data.id === systemId);

@@ -1,4 +1,6 @@
-export default {
+import { defineHook } from './liveView';
+
+export default defineHook({
   mounted() {
     this.updated();
   },
@@ -9,4 +11,4 @@ export default {
     this.el.textContent = `${dt.toLocaleString('en-US', options)}`;
     this.el.classList.remove('invisible');
   },
-};
+});

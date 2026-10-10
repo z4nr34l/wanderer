@@ -55,7 +55,7 @@ export const AddSystemDialog = ({
         setFilteredItems([]);
       } else {
         try {
-          const result = await outCommand({
+          const result = await outCommand<{ systems: SearchSystemItem[] }>({
             type: OutCommand.searchSystems,
             data: {
               text: query,
@@ -63,7 +63,7 @@ export const AddSystemDialog = ({
           });
 
           // TODO fix it
-          let prepared = (result.systems as SearchSystemItem[]).sort((a, b) => {
+          let prepared = result.systems.sort((a, b) => {
             const amatch = a.label.indexOf(query);
             const bmatch = b.label.indexOf(query);
             return amatch - bmatch;

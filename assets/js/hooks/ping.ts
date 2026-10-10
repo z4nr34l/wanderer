@@ -1,4 +1,6 @@
-export default {
+import { defineHook } from './liveView';
+
+export default defineHook({
   _nowMs: Date.now(),
 
   mounted() {
@@ -20,8 +22,8 @@ export default {
     // this.el.dataset.tip = `ping: No connection`;
     // this.el.classList.add('text-red-500');
   },
-  ping(rtt) {
+  ping(rtt: number | null) {
     this._nowMs = Date.now();
     this.pushEvent('ping', { rtt: rtt });
   },
-};
+});

@@ -1,4 +1,6 @@
-export default {
+import { defineHook } from '../liveView';
+
+export default defineHook({
   mounted() {
     const hook = this;
     this.el.addEventListener('click', e => {
@@ -9,7 +11,7 @@ export default {
           return;
         }
       }
-      this.pushEvent(hook.el.dataset.event, { data: hook.el.dataset.data });
+      this.pushEvent(hook.el.dataset.event ?? '', { data: hook.el.dataset.data });
     });
   },
-};
+});

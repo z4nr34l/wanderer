@@ -9,7 +9,7 @@ export const sortWHClasses = (wormholesData: Record<string, WormholeDataRaw>, st
   return statics
     .map(x => wormholesData[x])
     .filter(x => !!x)
-    .map(x => ({ name: x.name, ...WORMHOLES_ADDITIONAL_INFO[x.dest] }))
+    .map(x => ({ name: x.name, ...WORMHOLES_ADDITIONAL_INFO[String(x.dest)] }))
     .sort((a, b) => a.wormholeClassID - b.wormholeClassID)
     .map(x => x.name);
 };

@@ -3,7 +3,6 @@ import { useCallback, useRef } from 'react';
 export type UseEventBufferHandler<T> = (event: T) => void;
 
 export const useEventBuffer = <T>(handler: UseEventBufferHandler<T>) => {
-  // @ts-ignore
   const eventsBufferRef = useRef<T[]>([]);
 
   const eventTick = useCallback(
@@ -27,9 +26,8 @@ export const useEventBuffer = <T>(handler: UseEventBufferHandler<T>) => {
   const eventTickRef = useRef(eventTick);
   eventTickRef.current = eventTick;
 
-  // @ts-ignore
   const handleEvent = useCallback(
-    event => {
+    (event: T) => {
       if (!eventTickRef.current) {
         return;
       }
