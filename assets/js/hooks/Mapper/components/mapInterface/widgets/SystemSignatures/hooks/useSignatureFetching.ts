@@ -27,11 +27,11 @@ export const useSignatureFetching = ({ systemId, settings, signaturesRef, setSig
       setSignatures([]);
       return;
     }
-    const resp = await outCommand({
+    const resp = await outCommand<{ signatures?: SystemSignature[] }>({
       type: OutCommand.getSignatures,
       data: { system_id: systemId },
     });
-    const serverSigs = (resp.signatures ?? []) as SystemSignature[];
+    const serverSigs = resp.signatures ?? [];
 
     const extended = serverSigs.map(s => ({
       ...s,
