@@ -68,10 +68,43 @@
     stroke-dasharray: var(--rf-edge-bridge-dasharray, 10 5);
     stroke-linecap: var(--rf-edge-bridge-linecap, round);
   }
+}
 
-  &.Dangerous {
-    stroke: var(--rf-edge-dangerous, var(--eve-solar-system-status-color-dangerous, #af0000));
+// A red outer border for a connection marked dangerous: the same geometry as the edge, drawn
+// beneath it and wider, so whatever colour the edge carries on top - EOL, critical, mass, gate -
+// stays exactly as it was. Themes can tune it with --rf-edge-dangerous (colour),
+// --rf-edge-dangerous-opacity, --rf-edge-dangerous-border (extra width each side) and
+// --rf-edge-dangerous-linecap.
+.DangerousUnderlay {
+  // follow the back path's own width so the border is always the same margin outside it
+  --rf-edge-dangerous-base-width: var(--rf-edge-time-normal-width, 3px);
+
+  &.time1 {
+    --rf-edge-dangerous-base-width: var(--rf-edge-time-critical-width, 4px);
   }
+
+  &.time4 {
+    --rf-edge-dangerous-base-width: var(--rf-edge-time-eol-width, 4px);
+  }
+
+  &.Tick {
+    --rf-edge-dangerous-base-width: var(--rf-edge-time-normal-thick-width, 5px);
+
+    &.time1 {
+      --rf-edge-dangerous-base-width: var(--rf-edge-time-critical-thick-width, 5px);
+    }
+
+    &.time4 {
+      --rf-edge-dangerous-base-width: var(--rf-edge-time-eol-thick-width, 5px);
+    }
+  }
+
+  fill: none;
+  stroke: var(--rf-edge-dangerous, var(--eve-solar-system-status-color-dangerous, #d54040));
+  stroke-opacity: var(--rf-edge-dangerous-opacity, 0.9);
+  stroke-width: calc(var(--rf-edge-dangerous-base-width) + 2 * var(--rf-edge-dangerous-border, 3px));
+  stroke-linecap: var(--rf-edge-dangerous-linecap, butt);
+  pointer-events: none;
 }
 
 .EdgePathFront {

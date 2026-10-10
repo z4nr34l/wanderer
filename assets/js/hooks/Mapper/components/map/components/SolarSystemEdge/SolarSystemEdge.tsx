@@ -114,6 +114,19 @@ export const SolarSystemEdge = ({ id, source, target, markerEnd, style, data }: 
 
   return (
     <>
+      {/* Dangerous is an outer red border drawn under the edge, never a recolour of it: the edge's
+          own colour is how EOL and critical read in themes that draw no dashes, and painting it
+          red took that away. Same geometry, wider, inert - the click path stays on top. */}
+      {isDangerous && (
+        <path
+          className={clsx(classes.DangerousUnderlay, {
+            [classes.Tick]: isThickConnections,
+            [classes.time1]: isWormhole && data.time_status === TimeStatus._1h,
+            [classes.time4]: isWormhole && data.time_status === TimeStatus._4h,
+          })}
+          d={path}
+        />
+      )}
       <path
         id={`back_${id}`}
         className={clsx(classes.EdgePathBack, {
@@ -123,7 +136,6 @@ export const SolarSystemEdge = ({ id, source, target, markerEnd, style, data }: 
           [classes.Hovered]: hovered,
           [classes.Gate]: isGate,
           [classes.Bridge]: isBridge,
-          [classes.Dangerous]: isDangerous,
         })}
         d={path}
         markerEnd={markerEnd}
