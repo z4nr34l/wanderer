@@ -504,7 +504,9 @@ defmodule WandererAppWeb.MapCoreEventHandler do
         %{"system_labels" => labels},
         %{assigns: %{map_id: map_id, user_permissions: user_permissions}} = socket
       ) do
-    if user_permissions.update_system do
+    # The label list is the map's, shared by everybody on it, so changing it is the map's
+    # managers' call - a member may put a label on a system, but not redefine what labels mean.
+    if user_permissions.manage_map do
       case WandererApp.MapRepo.update_system_labels(map_id, labels) do
         {:ok, _map, normalized_labels} ->
           :ok =

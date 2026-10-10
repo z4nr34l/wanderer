@@ -25,11 +25,13 @@ type LabelRowProps = {
 
 const LabelRow = ({ label, isFirst, isLast, onChange, onMove, onRemove, disabled }: LabelRowProps) => {
   const [name, setName] = useState(label.name);
+  const [description, setDescription] = useState(label.description ?? '');
 
   useEffect(() => setName(label.name), [label.name]);
+  useEffect(() => setDescription(label.description ?? ''), [label.description]);
 
   return (
-    <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 shrink-0">
+    <div className="grid grid-cols-[auto_1fr_2fr_auto_auto] items-center gap-2 shrink-0">
       <input
         type="color"
         className="w-[26px] h-[26px] bg-transparent border border-stone-700 rounded cursor-pointer p-0"
@@ -46,6 +48,16 @@ const LabelRow = ({ label, isFirst, isLast, onChange, onMove, onRemove, disabled
         onChange={e => setName(e.target.value)}
         onBlur={() => name !== label.name && onChange({ name })}
         placeholder="Label name"
+      />
+
+      <InputText
+        className="text-sm w-full py-1 px-2"
+        value={description}
+        disabled={disabled}
+        maxLength={256}
+        onChange={e => setDescription(e.target.value)}
+        onBlur={() => description !== (label.description ?? '') && onChange({ description })}
+        placeholder="What it means (optional)"
       />
 
       <div className="flex gap-1">
@@ -82,9 +94,20 @@ const LabelRow = ({ label, isFirst, isLast, onChange, onMove, onRemove, disabled
   );
 };
 
+// what a member who may not change the list sees: the list itself, readable, nothing to click
+const LabelReadOnlyRow = ({ label }: { label: SystemLabelDefinition }) => (
+  <div className="grid grid-cols-[auto_1fr_2fr] items-center gap-2 shrink-0 text-sm">
+    <span className="w-[14px] h-[14px] rounded-sm border border-stone-700" style={{ backgroundColor: label.color }} />
+    <span className="text-stone-200">{label.name}</span>
+    <span className="text-stone-400 truncate">{label.description || ''}</span>
+  </div>
+);
+
 export const LabelsSettings = () => {
   const { settings, updateSetting, renderSettingItem } = useMapSettings();
-  const canUpdateLabels = useMapCheckPermissions([UserPermission.UPDATE_SYSTEM]);
+  // the list is the whole map's, so redefining it is for the map's managers; anybody who can
+  // edit a system can still put these labels on it
+  const canUpdateLabels = useMapCheckPermissions([UserPermission.MANAGE_MAP]);
 
   const labels = useMemo(() => parseSystemLabels(settings.system_labels), [settings.system_labels]);
 
@@ -121,7 +144,7 @@ export const LabelsSettings = () => {
 
   const handleAdd = useCallback(() => {
     const id = createLabelId(labels);
-    saveLabels([...labels, { id, name: id.toUpperCase(), color: '#3d94af' }]);
+    saveLabels([...labels, { id, name: id.toUpperCase(), color: '#3d94af', description: '' }]);
   }, [labels, saveLabels]);
 
   const handleReset = useCallback(() => saveLabels(getDefaultSystemLabels()), [saveLabels]);
@@ -131,53 +154,59 @@ export const LabelsSettings = () => {
       <div className="flex justify-between items-center gap-2 shrink-0">
         <span className="text-stone-400 text-[12px]">
           {canUpdateLabels
-            ? 'Labels are shared by everyone on this map. Names appear in the right-click menu and on systems.'
-            : 'Labels are shared by everyone on this map. You need system-edit permission to change them.'}
+            ? 'Labels are shared by everyone on this map. Names appear in the right-click menu and on systems; the description shows on hover.'
+            : "Labels are shared by everyone on this map. Only the map's managers can change the list - you can still put these labels on systems."}
         </span>
-        <WdButton
-          size="small"
-          outlined
-          className="text-xs py-1 px-2 h-auto min-h-[24px]"
-          disabled={!canUpdateLabels}
-          onClick={handleReset}
-        >
-          Reset to Default
-        </WdButton>
+        {canUpdateLabels && (
+          <WdButton size="small" outlined className="text-xs py-1 px-2 h-auto min-h-[24px]" onClick={handleReset}>
+            Reset to Default
+          </WdButton>
+        )}
       </div>
 
-      <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 text-stone-500 text-[10px] uppercase tracking-wider shrink-0">
-        <span>Color</span>
-        <span>Name</span>
-        <span>Order</span>
-        <span />
-      </div>
+      {canUpdateLabels ? (
+        <>
+          <div className="grid grid-cols-[auto_1fr_2fr_auto_auto] items-center gap-2 text-stone-500 text-[10px] uppercase tracking-wider shrink-0">
+            <span>Color</span>
+            <span>Name</span>
+            <span>Description</span>
+            <span>Order</span>
+            <span />
+          </div>
 
-      <div className="flex flex-col gap-2 shrink-0">
-        {labels.map((label, index) => (
-          <LabelRow
-            key={label.id}
-            label={label}
-            isFirst={index === 0}
-            isLast={index === labels.length - 1}
-            onChange={patch => handleChange(index, patch)}
-            onMove={offset => handleMove(index, offset)}
-            onRemove={() => handleRemove(index)}
-            disabled={!canUpdateLabels}
-          />
-        ))}
-      </div>
+          <div className="flex flex-col gap-2 shrink-0">
+            {labels.map((label, index) => (
+              <LabelRow
+                key={label.id}
+                label={label}
+                isFirst={index === 0}
+                isLast={index === labels.length - 1}
+                onChange={patch => handleChange(index, patch)}
+                onMove={offset => handleMove(index, offset)}
+                onRemove={() => handleRemove(index)}
+                disabled={false}
+              />
+            ))}
+          </div>
 
-      <div className="shrink-0">
-        <WdButton
-          size="small"
-          outlined
-          icon="pi pi-plus"
-          label="Add label"
-          className="text-xs py-1 px-2"
-          disabled={!canUpdateLabels}
-          onClick={handleAdd}
-        />
-      </div>
+          <div className="shrink-0">
+            <WdButton
+              size="small"
+              outlined
+              icon="pi pi-plus"
+              label="Add label"
+              className="text-xs py-1 px-2"
+              onClick={handleAdd}
+            />
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-col gap-2 shrink-0">
+          {labels.map(label => (
+            <LabelReadOnlyRow key={label.id} label={label} />
+          ))}
+        </div>
+      )}
 
       <div className="border-b-2 border-dotted border-stone-700/50 h-px my-1 shrink-0" />
 

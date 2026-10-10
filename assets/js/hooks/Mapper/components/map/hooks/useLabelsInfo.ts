@@ -12,8 +12,9 @@ interface UseLabelsInfoParams {
 export type LabelInfo = SystemLabelDefinition;
 
 /**
- * Label ids are shared map data, label definitions are per user - ids without a definition
- * are still rendered, just with their raw id and a neutral color.
+ * Both the label ids on a system and the definitions they point at are the map's, shared by
+ * everybody on it. An id with no definition - one removed from the list, or carried in from
+ * another map - is still rendered, with its raw id and a neutral colour.
  */
 function sortedLabels(labelIds: string[], definitions: SystemLabelDefinition[]): LabelInfo[] {
   if (!labelIds) return [];

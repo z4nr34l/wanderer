@@ -2,6 +2,8 @@ export type SystemLabelDefinition = {
   id: string;
   name: string;
   color: string;
+  // what the label means, said once for the whole map and read on hover
+  description?: string;
 };
 
 export const DEFAULT_SYSTEM_LABELS: SystemLabelDefinition[] = [
@@ -44,7 +46,12 @@ export const parseSystemLabels = (raw: unknown): SystemLabelDefinition[] => {
   }
 
   // shortName used to be a separate badge field - drop it, the name is the badge now
-  const labels = raw.filter(isLabelDefinition).map(({ id, name, color }) => ({ id: id.trim(), name, color }));
+  const labels = raw.filter(isLabelDefinition).map(({ id, name, color, description }) => ({
+    id: id.trim(),
+    name,
+    color,
+    description: typeof description === 'string' ? description : '',
+  }));
 
   if (labels.length === 0) {
     return getDefaultSystemLabels();

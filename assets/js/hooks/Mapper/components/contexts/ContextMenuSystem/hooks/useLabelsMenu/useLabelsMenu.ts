@@ -88,7 +88,8 @@ export const useLabelsMenu = (
               ]
             : []),
           ...systemLabels.map(x => ({
-            label: x.name,
+            // the name alone is often a single letter; the description says what it stands for
+            label: x.description ? `${x.name} - ${x.description}` : x.name,
             icon: PrimeIcons.BOOKMARK,
             command: () => {
               labels.toggleLabel(x.id);

@@ -15,12 +15,12 @@ defmodule WandererApp.MapRepo do
   }
 
   @default_system_labels [
-    %{"id" => "a", "name" => "A", "color" => "#2d803b"},
-    %{"id" => "b", "name" => "B", "color" => "#3d94af"},
-    %{"id" => "c", "name" => "C", "color" => "#3d94af"},
-    %{"id" => "1", "name" => "1", "color" => "#563daf"},
-    %{"id" => "2", "name" => "2", "color" => "#8f3daf"},
-    %{"id" => "3", "name" => "3", "color" => "#3d65af"}
+    %{"id" => "a", "name" => "A", "color" => "#2d803b", "description" => ""},
+    %{"id" => "b", "name" => "B", "color" => "#3d94af", "description" => ""},
+    %{"id" => "c", "name" => "C", "color" => "#3d94af", "description" => ""},
+    %{"id" => "1", "name" => "1", "color" => "#563daf", "description" => ""},
+    %{"id" => "2", "name" => "2", "color" => "#8f3daf", "description" => ""},
+    %{"id" => "3", "name" => "3", "color" => "#3d65af", "description" => ""}
   ]
 
   def get(map_id, relationships \\ []) do
@@ -247,7 +247,8 @@ defmodule WandererApp.MapRepo do
 
   def default_system_labels, do: @default_system_labels
 
-  def normalize_system_labels(labels) when is_list(labels) and labels != [] and length(labels) <= 64 do
+  def normalize_system_labels(labels)
+      when is_list(labels) and labels != [] and length(labels) <= 64 do
     with {:ok, normalized} <- normalize_label_entries(labels),
          true <- unique_label_ids?(normalized) do
       {:ok, normalized}
@@ -271,20 +272,37 @@ defmodule WandererApp.MapRepo do
     end
   end
 
-  defp normalize_label(%{"id" => id, "name" => name, "color" => color})
+  defp normalize_label(%{"id" => id, "name" => name, "color" => color} = label)
        when is_binary(id) and is_binary(name) and is_binary(color) do
     id = String.trim(id)
     name = String.trim(name)
+    description = label |> Map.get("description") |> normalize_description()
 
     if id != "" and name != "" and String.length(id) <= 32 and String.length(name) <= 64 and
-         Regex.match?(~r/^#[0-9a-fA-F]{6}$/, color) do
-      {:ok, %{"id" => id, "name" => name, "color" => String.downcase(color)}}
+         Regex.match?(~r/^#[0-9a-fA-F]{6}$/, color) and is_binary(description) do
+      {:ok,
+       %{
+         "id" => id,
+         "name" => name,
+         "color" => String.downcase(color),
+         "description" => description
+       }}
     else
       {:error, :invalid_system_labels}
     end
   end
 
   defp normalize_label(_), do: {:error, :invalid_system_labels}
+
+  # What a label means, said once for the whole map - optional, and short enough to read on hover.
+  defp normalize_description(nil), do: ""
+
+  defp normalize_description(description) when is_binary(description) do
+    trimmed = String.trim(description)
+    if String.length(trimmed) <= 256, do: trimmed, else: :too_long
+  end
+
+  defp normalize_description(_description), do: :invalid
 
   defp unique_label_ids?(labels) do
     ids = Enum.map(labels, & &1["id"])

@@ -63,7 +63,12 @@ export const SolarSystemNodeTheme = memo((props: NodeProps<MapSolarSystemType>) 
           )}
 
           {nodeVars.labelsInfo.map(x => (
-            <div key={x.id} className={clsx(classes.Bookmark)} style={{ backgroundColor: x.color }}>
+            <div
+              key={x.id}
+              className={clsx(classes.Bookmark)}
+              style={{ backgroundColor: x.color }}
+              title={x.description || undefined}
+            >
               {x.name}
             </div>
           ))}
@@ -163,19 +168,13 @@ export const SolarSystemNodeTheme = memo((props: NodeProps<MapSolarSystemType>) 
         <>
           {nodeVars.unsplashedLeft.length > 0 && (
             <div className={classes.Unsplashed}>
-              <UnsplashedSignatureColumn
-                signatures={nodeVars.unsplashedLeft}
-                wormholesData={nodeVars.wormholesData}
-              />
+              <UnsplashedSignatureColumn signatures={nodeVars.unsplashedLeft} wormholesData={nodeVars.wormholesData} />
             </div>
           )}
 
           {nodeVars.unsplashedRight.length > 0 && (
             <div className={clsx(classes.Unsplashed, classes['Unsplashed--right'])}>
-              <UnsplashedSignatureColumn
-                signatures={nodeVars.unsplashedRight}
-                wormholesData={nodeVars.wormholesData}
-              />
+              <UnsplashedSignatureColumn signatures={nodeVars.unsplashedRight} wormholesData={nodeVars.wormholesData} />
             </div>
           )}
         </>
