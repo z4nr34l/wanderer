@@ -96,32 +96,32 @@ defmodule WandererApp.Kills.Subscription.SystemMapIndex do
     try do
       {:ok, maps} = WandererApp.Maps.get_available_maps()
 
-      # Build the index: system_id -> [map_ids]
-      index =
-        maps
-        |> Enum.reduce(%{}, fn map, acc ->
-          case WandererApp.MapSystemRepo.get_all_by_map(map.id) do
-            {:ok, systems} ->
-              # Add this map to each system's list
-              Enum.reduce(systems, acc, fn system, acc2 ->
-                Map.update(acc2, system.solar_system_id, [map.id], &[map.id | &1])
-              end)
-
-            _ ->
-              acc
-          end
-        end)
-        |> Enum.map(fn {system_id, map_ids} ->
-          # Remove duplicates and convert to list
-          {system_id, Enum.uniq(map_ids)}
-        end)
-        |> Map.new()
-
-      {:ok, index}
+      {:ok, index_for_maps(maps)}
     rescue
       e ->
         {:error, e}
     end
+  end
+
+  @doc false
+  # system_id -> [map_ids], built from the systems each map shows. A system taken off a map
+  # stays in its table as hidden; counting it here kept sending that map kills from a system
+  # nobody can see on it any more.
+  @spec index_for_maps([map()]) :: %{integer() => [String.t()]}
+  def index_for_maps(maps) do
+    maps
+    |> Enum.reduce(%{}, fn map, acc ->
+      case WandererApp.MapSystemRepo.get_visible_by_map(map.id) do
+        {:ok, systems} ->
+          Enum.reduce(systems, acc, fn system, acc2 ->
+            Map.update(acc2, system.solar_system_id, [map.id], &[map.id | &1])
+          end)
+
+        _ ->
+          acc
+      end
+    end)
+    |> Map.new(fn {system_id, map_ids} -> {system_id, Enum.uniq(map_ids)} end)
   end
 
   defp schedule_refresh do
