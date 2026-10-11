@@ -11,12 +11,17 @@ import {
   ShipSizeStatus,
   SolarSystemConnection,
   TimeStatus,
+  UserPermission,
 } from '@/hooks/Mapper/types';
+import { checkPermissions } from '@/hooks/Mapper/components/map/helpers';
 import { ctxManager } from '@/hooks/Mapper/utils/contextManager.ts';
 
 export const useContextMenuConnectionHandlers = () => {
   const contextMenuRef = useRef<ContextMenu | null>(null);
-  const { outCommand } = useMapState();
+  const {
+    outCommand,
+    data: { userPermissions },
+  } = useMapState();
   const {
     undoStack: { pushUndoEntry },
   } = useMapRootState();
@@ -26,8 +31,18 @@ export const useContextMenuConnectionHandlers = () => {
   ref.current = { edge, outCommand };
 
   const handleConnectionContext: EdgeMouseHandler = (ev, edge_) => {
-    setEdge(edge_);
     ev.preventDefault();
+
+    // nothing in the menu is open to someone who may neither edit nor remove a connection
+    const canUse = [UserPermission.UPDATE_SYSTEM, UserPermission.DELETE_CONNECTION].some(permission =>
+      checkPermissions(userPermissions, permission),
+    );
+
+    if (!canUse) {
+      return;
+    }
+
+    setEdge(edge_);
     ctxManager.next('ctxConn', contextMenuRef.current);
     contextMenuRef.current?.show(ev);
   };
