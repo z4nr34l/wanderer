@@ -3,6 +3,46 @@
 <!-- changelog -->
 
 ## [v1.105.1](https://github.com/wanderer-industries/wanderer/compare/v1.105.0...v1.105.1) (2026-07-31)
+## [v1.104.0](https://github.com/wanderer-industries/wanderer/compare/v1.103.7...v1.104.0) (2026-10-15)
+
+
+
+
+### Features:
+
+* show all tracked map characters
+
+## [v1.103.7](https://github.com/wanderer-industries/wanderer/compare/v1.103.6...v1.103.7) (2026-10-15)
+
+
+
+
+## [v1.103.6](https://github.com/wanderer-industries/wanderer/compare/v1.103.5...v1.103.6) (2026-10-14)
+
+
+
+
+### Bug Fixes:
+
+* signatures: Fixed filtering combat sites
+
+* signatures: Added button for edit signature in toolbar
+
+* signatures: Added QoL for signatures - Ctrl + A allow select all. Fixed colors for selected rows. Added toolbar for delete and copy selected sigs. Added toxiproxy for debugging mapper locally with delays
+
+## [v1.103.5](https://github.com/wanderer-industries/wanderer/compare/v1.103.4...v1.103.5) (2026-10-13)
+
+
+
+
+### Bug Fixes:
+
+* chore: handling second paste coloring
+
+* chore: removed unnecessary files
+
+* core: Add highlighting for signatures
+
 ## [v1.103.4](https://github.com/wanderer-industries/wanderer/compare/v1.103.3...v1.103.4) (2026-09-20)
 
 
