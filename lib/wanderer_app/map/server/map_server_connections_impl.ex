@@ -89,6 +89,11 @@ defmodule WandererApp.Map.Server.ConnectionsImpl do
   # EOL 48h
   @connection_eol_48_minutes 48 * 60
 
+  # Ship groups whose hulls carry a jump drive (ESI /universe/groups, every type checked for the
+  # jumpDriveRange attribute): titans, dreadnoughts, carriers, supercarriers, the Rorqual, black
+  # ops, jump freighters, force auxiliaries, lancer dreadnoughts and command carriers
+  @jump_drive_ship_groups [30, 485, 547, 659, 883, 898, 902, 1538, 4594, 5120]
+
   @connection_type_wormhole 0
   @connection_type_stargate 1
   # @connection_type_bridge 2 # reserved for future use
@@ -671,7 +676,7 @@ defmodule WandererApp.Map.Server.ConnectionsImpl do
       })
     end
 
-    case WandererApp.Map.check_connection(map_id, location, old_location) do
+    case check_connection(map_id, location, old_location, character, is_manual) do
       :ok ->
         connection_type =
           is_connection_valid(
@@ -772,7 +777,7 @@ defmodule WandererApp.Map.Server.ConnectionsImpl do
 
         :ok
 
-      {:error, :already_exists} ->
+      {:error, reason} when reason in [:already_exists, :not_a_wormhole] ->
         # Still broadcast location change in case of followed character
         Impl.broadcast!(map_id, :maybe_select_system, %{
           character_id: character_id,
@@ -797,6 +802,24 @@ defmodule WandererApp.Map.Server.ConnectionsImpl do
         _connection_extra_info
       ),
       do: :ok
+
+  # A tracked move that a jump bridge or a jump drive explains went through no wormhole, so it
+  # draws no connection. A connection added by hand is drawn whatever it is.
+  defp check_connection(map_id, location, old_location, character, is_manual) do
+    with :ok <- WandererApp.Map.check_connection(map_id, location, old_location) do
+      if not is_manual and
+           bridge_or_jump_drive_move?(
+             map_id,
+             character.ship,
+             old_location.solar_system_id,
+             location.solar_system_id
+           ) do
+        {:error, :not_a_wormhole}
+      else
+        :ok
+      end
+    end
+  end
 
   defp get_extra_info(nil, _key, default_value), do: default_value
 
@@ -1058,6 +1081,30 @@ defmodule WandererApp.Map.Server.ConnectionsImpl do
         false
       end
     else
+      _ -> false
+    end
+  end
+
+  @doc """
+  Check if a move between two k-space systems with no stargate between them was made through
+  a jump bridge the map knows or on the ship's own jump drive, rather than through a wormhole.
+  """
+  def bridge_or_jump_drive_move?(
+        map_id,
+        ship_type_id,
+        from_solar_system_id,
+        to_solar_system_id
+      ) do
+    is_kspace_wormhole_connection?(from_solar_system_id, to_solar_system_id) and
+      (jump_drive_ship?(ship_type_id) or
+         WandererApp.Map.Bridges.bridged?(map_id, from_solar_system_id, to_solar_system_id))
+  end
+
+  defp jump_drive_ship?(nil), do: false
+
+  defp jump_drive_ship?(ship_type_id) do
+    case WandererApp.CachedInfo.get_ship_type(ship_type_id) do
+      {:ok, %{group_id: group_id}} -> group_id in @jump_drive_ship_groups
       _ -> false
     end
   end

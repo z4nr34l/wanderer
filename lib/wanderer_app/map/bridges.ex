@@ -80,6 +80,23 @@ defmodule WandererApp.Map.Bridges do
   end
 
   @doc """
+  Whether the map knows a bridge between the two systems, whichever way round they are named.
+  """
+  @spec bridged?(String.t(), integer(), integer()) :: boolean()
+  def bridged?(map_id, source_id, target_id) do
+    {first, second} = {min(source_id, target_id), max(source_id, target_id)}
+
+    case MapBridge.by_map_and_systems(%{
+           map_id: map_id,
+           solar_system_source: first,
+           solar_system_target: second
+         }) do
+      {:ok, [_bridge | _]} -> true
+      _ -> false
+    end
+  end
+
+  @doc """
   The bridge pairs a route may use, as the route builder wants them.
 
   A dangerous bridge is left out when the route settings say to avoid those; with bridges turned
@@ -216,7 +233,7 @@ defmodule WandererApp.Map.Bridges do
 
       case far_side(name, system_id) do
         {:ok, far_id} ->
-          if stored?(map_id, system_id, far_id) do
+          if bridged?(map_id, system_id, far_id) do
             %{acc | known: acc.known + 1}
           else
             case store(map_id, system_id, far_id, false) do
@@ -229,19 +246,6 @@ defmodule WandererApp.Map.Bridges do
           %{acc | unreadable: acc.unreadable ++ [name]}
       end
     end)
-  end
-
-  defp stored?(map_id, source_id, target_id) do
-    {first, second} = {min(source_id, target_id), max(source_id, target_id)}
-
-    case MapBridge.by_map_and_systems(%{
-           map_id: map_id,
-           solar_system_source: first,
-           solar_system_target: second
-         }) do
-      {:ok, [_bridge | _]} -> true
-      _ -> false
-    end
   end
 
   defp read_structure_pages(_corporation_id, _opts, page, acc) when page > @structure_pages do

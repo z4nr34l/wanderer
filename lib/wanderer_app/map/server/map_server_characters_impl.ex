@@ -940,9 +940,24 @@ defmodule WandererApp.Map.Server.CharactersImpl do
 
     case is_valid do
       true ->
+        bridge_or_jump_drive_move =
+          ConnectionsImpl.bridge_or_jump_drive_move?(
+            map_id,
+            get_ship_type_id(character_id),
+            old_location.solar_system_id,
+            location.solar_system_id
+          )
+
         # Connection is valid (at least one system matches scopes)
         # Add systems that match the map's scopes - individual system filtering by maybe_add_system
-        case SystemsImpl.maybe_add_system(map_id, location, old_location, map_opts, scopes) do
+        case maybe_add_system(
+               map_id,
+               location,
+               old_location,
+               map_opts,
+               scopes,
+               bridge_or_jump_drive_move
+             ) do
           :ok ->
             :ok
 
@@ -953,7 +968,14 @@ defmodule WandererApp.Map.Server.CharactersImpl do
         end
 
         # Add old location system (in case it wasn't on map) - only if it matches scopes
-        case SystemsImpl.maybe_add_system(map_id, old_location, location, map_opts, scopes) do
+        case maybe_add_system(
+               map_id,
+               old_location,
+               location,
+               map_opts,
+               scopes,
+               bridge_or_jump_drive_move
+             ) do
           :ok ->
             :ok
 
@@ -987,6 +1009,24 @@ defmodule WandererApp.Map.Server.CharactersImpl do
 
       _ ->
         :ok
+    end
+  end
+
+  # A jump bridge or a jump drive takes a ship between k-space systems no stargate joins without
+  # any wormhole, so such a move only brings in the systems the map's scopes name.
+  defp maybe_add_system(map_id, location, old_location, map_opts, scopes, true) do
+    if ConnectionsImpl.can_add_location(scopes, location.solar_system_id),
+      do: SystemsImpl.maybe_add_system(map_id, location, old_location, map_opts, scopes),
+      else: :ok
+  end
+
+  defp maybe_add_system(map_id, location, old_location, map_opts, scopes, false),
+    do: SystemsImpl.maybe_add_system(map_id, location, old_location, map_opts, scopes)
+
+  defp get_ship_type_id(character_id) do
+    case WandererApp.Character.get_character(character_id) do
+      {:ok, %{ship: ship_type_id}} -> ship_type_id
+      _ -> nil
     end
   end
 
