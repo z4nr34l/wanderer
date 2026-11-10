@@ -3,6 +3,43 @@
 <!-- changelog -->
 
 ## [v1.105.1](https://github.com/wanderer-industries/wanderer/compare/v1.105.0...v1.105.1) (2026-07-31)
+## [v1.104.5](https://github.com/wanderer-industries/wanderer/compare/v1.104.4...v1.104.5) (2026-11-08)
+
+
+
+
+## [v1.104.4](https://github.com/wanderer-industries/wanderer/compare/v1.104.3...v1.104.4) (2026-11-08)
+
+
+
+
+## [v1.104.3](https://github.com/wanderer-industries/wanderer/compare/v1.104.2...v1.104.3) (2026-10-19)
+
+
+
+
+### Bug Fixes:
+
+* webhooks: return state in process_active_subscriptions to avoid BadMapError crash
+
+## [v1.104.2](https://github.com/wanderer-industries/wanderer/compare/v1.104.1...v1.104.2) (2026-10-18)
+
+
+
+
+### Bug Fixes:
+
+* esi: honour 304 response headers when revalidating cached ESI data
+
+## [v1.104.1](https://github.com/wanderer-industries/wanderer/compare/v1.104.0...v1.104.1) (2026-10-17)
+
+
+
+
+### Bug Fixes:
+
+* routes: Change endpoint for routes - it should reduce cpu using for a lot of routes build
+
 ## [v1.104.0](https://github.com/wanderer-industries/wanderer/compare/v1.103.7...v1.104.0) (2026-10-15)
 
 
