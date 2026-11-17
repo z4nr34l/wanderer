@@ -3,6 +3,16 @@
 <!-- changelog -->
 
 ## [v1.105.1](https://github.com/wanderer-industries/wanderer/compare/v1.105.0...v1.105.1) (2026-07-31)
+
+## [v1.104.6](https://github.com/wanderer-industries/wanderer/compare/v1.104.5...v1.104.6) (2026-11-15)
+
+
+
+
+### Bug Fixes:
+
+* bind ESI 304 responses to request validators
+
 ## [v1.104.5](https://github.com/wanderer-industries/wanderer/compare/v1.104.4...v1.104.5) (2026-11-08)
 
 
