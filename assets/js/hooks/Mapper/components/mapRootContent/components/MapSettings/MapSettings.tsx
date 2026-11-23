@@ -1,6 +1,7 @@
 import { WdButton } from '@/hooks/Mapper/components/ui-kit';
 import { CONNECTION_BUBBLE_KEYS } from '@/hooks/Mapper/constants/connectionBubble.ts';
 import styles from './MapSettings.module.scss';
+import clsx from 'clsx';
 import { Dialog } from 'primereact/dialog';
 import { useCallback, useRef, useState } from 'react';
 import { TabPanel, TabView } from 'primereact/tabview';
@@ -19,6 +20,7 @@ import {
 } from '@/hooks/Mapper/components/mapRootContent/components/MapSettings/MapSettingsProvider.tsx';
 import { WidgetsSettings } from './components/WidgetsSettings';
 import { CommonSettings } from './components/CommonSettings';
+import { NotificationSettings } from './components/NotificationSettings.tsx';
 import { BookmarksSettings } from './components/BookmarksSettings';
 import { LabelsSettings } from './components/LabelsSettings';
 import { SettingsListItem } from './types.ts';
@@ -83,21 +85,25 @@ export const MapSettingsComp = ({ visible, onHide }: MapSettingsProps) => {
       onShow={handleShow}
       onHide={handleHide}
     >
-      <div className="flex flex-col gap-3 h-full">
-        <div className="flex flex-col gap-2 h-full">
+      <div className="flex h-full min-w-0 flex-col gap-3 overflow-hidden">
+        <div className="flex h-full min-w-0 flex-col gap-2 overflow-hidden">
           <TabView
             activeIndex={activeIndex}
-            className="vertical-tabs-container h-full"
+            className={clsx('vertical-tabs-container h-full min-w-0 overflow-hidden', styles.tabViewContent)}
             onTabChange={e => setActiveIndex(e.index)}
           >
             <TabPanel header="Common" headerClassName={styles.verticalTabHeader}>
               <CommonSettings />
             </TabPanel>
 
+            <TabPanel header="Notification" headerClassName={styles.verticalTabHeader}>
+              <NotificationSettings />
+            </TabPanel>
+
             <TabPanel header="Systems" headerClassName={styles.verticalTabHeader}>
               <div className="flex h-full w-full flex-col gap-1">
                 {renderSettingsList(SYSTEMS_CHECKBOXES_PROPS)}
-                <div className="mt-3 border-t border-stone-800 pt-3 [&_.p-dropdown]:w-48">
+                <div className={clsx('mt-3 border-t pt-3', styles.dotlanSetting)}>
                   {renderSettingItem(DOTLAN_BEHAVIOR_SETTING)}
                 </div>
               </div>
