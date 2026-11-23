@@ -92,6 +92,7 @@ export type CommandInit = {
   systems: SolarSystemRawType[];
   system_signatures: Record<string, SystemSignature[]>;
   kills: Kill[];
+  detailed_kills: CommandDetailedKillsUpdated;
   system_static_infos: SolarSystemStaticInfoRaw[];
   connections: SolarSystemConnection[];
   wormholes: WormholeDataRaw[];
@@ -109,6 +110,7 @@ export type CommandInit = {
   reset?: boolean;
   is_subscription_active?: boolean;
   available_routes_by?: RoutesByCategoryType[];
+  system_custom_label_max_length?: number;
   main_character_eve_id?: string | null;
   following_character_eve_id?: string | null;
   map_slug?: string;

@@ -20,6 +20,7 @@ import { TopSearch } from '@/hooks/Mapper/components/mapRootContent/components/T
 import { useIsMobile } from '@/hooks/Mapper/hooks/useIsMobile.ts';
 import clsx from 'clsx';
 import { JumpPlanner, JumpPlannerInitialSystem } from '@/hooks/Mapper/components/mapRootContent/components/JumpPlanner';
+import { MapKillsNotifications } from './components/MapKillsNotifications/MapKillsNotifications.tsx';
 
 interface JumpPlannerDialogState {
   visible: boolean;
@@ -146,6 +147,7 @@ export const MapRootContent = ({}: MapRootContentProps) => {
         />
 
         {hasOldSettings && <OldSettingsDialog />}
+        <MapKillsNotifications />
       </Layout>
     </div>
   );
