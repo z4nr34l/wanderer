@@ -1,3 +1,5 @@
+import { defineHook } from '../liveView';
+
 const ACL_CHIP_SELECTOR = '[data-map-acl-chip]';
 const ACL_OVERFLOW_SELECTOR = '[data-map-acl-overflow]';
 
@@ -54,7 +56,10 @@ const updateAclOverflow = (container: HTMLElement) => {
   overflow.setAttribute('aria-label', `${hiddenCount} more access lists: ${hiddenNames}`);
 };
 
-export default {
+export default defineHook({
+  updateAclOverflow: (() => {}) as () => void,
+  resizeObserver: null as ResizeObserver | null,
+
   mounted() {
     this.updateAclOverflow = () => updateAclOverflow(this.el);
     this.resizeObserver = new ResizeObserver(this.updateAclOverflow);
@@ -67,6 +72,6 @@ export default {
   },
 
   destroyed() {
-    this.resizeObserver.disconnect();
+    this.resizeObserver?.disconnect();
   },
-};
+});

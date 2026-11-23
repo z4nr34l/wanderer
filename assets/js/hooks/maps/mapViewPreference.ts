@@ -1,3 +1,5 @@
+import { defineHook } from '../liveView';
+
 const STORAGE_KEY = 'wanderer:maps:view-mode';
 const VIEW_MODE_SELECTOR = '[data-map-view-mode]';
 const ALLOWED_VIEW_MODES = new Set(['compact', 'cards']);
@@ -20,7 +22,9 @@ const storeViewMode = (mode: string) => {
   }
 };
 
-export default {
+export default defineHook({
+  handleViewModeClick: (() => {}) as (event: Event) => void,
+
   mounted() {
     this.handleViewModeClick = (event: Event) => {
       if (!(event.target instanceof Element)) return;
@@ -45,4 +49,4 @@ export default {
   destroyed() {
     this.el.removeEventListener('click', this.handleViewModeClick);
   },
-};
+});
